@@ -39,7 +39,6 @@ app.get("/test-db", async (req, res) => {
   try {
     const admins = await prisma.admin.findMany({
       select: {
-        id: true,
         adminID: true,
         username: true,
         name: true,
@@ -49,8 +48,9 @@ app.get("/test-db", async (req, res) => {
     });
 
     res.json(admins);
-  } catch (err) {
-    res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
+  } catch (err: any) {
+    console.error("❌ Prisma error:", err);
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล", detail: err.message });
   }
 });
 
