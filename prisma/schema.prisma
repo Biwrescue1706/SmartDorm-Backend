@@ -9,7 +9,7 @@ generator client {
 
 model Admin {
   id       String  @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของแอดมิน
-  adminID  String // รหัสแอดมิน
+  adminID  String  @unique // รหัสแอดมิน
   username String  @unique // ชื่อผู้ใช้ (ห้ามซ้ำ)
   name     String? // ชื่อจริง (optional)
   password String // รหัสผ่าน (เก็บแบบเข้ารหัส)
