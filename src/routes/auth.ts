@@ -70,13 +70,13 @@ router.post("/login", async (req: Request , res: Response) => {
 });
 
 // ---------------- LOGOUT ----------------
-router.get("/logout", (req, res) => {
+router.get("/logout", (req: Request , res: Response) => {
   res.clearCookie("token");
   res.json({ message: "ออกจากระบบสำเร็จ" });
 });
 
 // ---------------- VERIFY ----------------
-router.get("/verify", (req, res) => {
+router.get("/verify", (req: Request , res: Response) => {
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "ไม่มี token" });
 
