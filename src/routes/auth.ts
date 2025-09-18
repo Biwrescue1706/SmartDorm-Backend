@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma";
 import { Router, Request, Response } from "express";
-import { authMiddleware } from "../../src/middleware/authMiddleware";
+import { authMiddleware } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -169,5 +169,7 @@ router.delete("/:id", authMiddleware, async (req: Request, res: Response) => {
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
   }
 });
+
+
 
 export default router;
