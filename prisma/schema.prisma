@@ -1,0 +1,59 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Admin {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  username String @unique
+  name     String
+  password String
+}
+
+model User {
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String    @unique
+  name     String
+  phone    String
+  bookings Booking[]
+}
+
+model Room {
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  number   String    @unique
+  size     String
+  price    Int
+  deposit  Int
+  status   String
+  bookings Booking[]
+}
+
+model Booking {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @db.ObjectId
+  roomId    String    @db.ObjectId
+  startDate DateTime
+  endDate   DateTime?
+  status    String
+
+  // Booking เป็นเจ้าของ relation ไปหา Payment
+  paymentId String?  @unique @db.ObjectId
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  User User @relation(fields: [userId], references: [id])
+  Room Room @relation(fields: [roomId], references: [id])
+}
+
+model Payment {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  amount  Int
+  slipUrl String
+  status  String
+
+  // Payment เชื่อมกับ Booking (ไม่ต้อง fields/references ซ้ำ)
+  booking Booking?
+}
