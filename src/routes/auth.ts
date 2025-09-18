@@ -13,7 +13,7 @@ if (!JWT_SECRET) {
 }
 
 function generateAdminID() {
-  const segment = () => Math.random().toString(36).substring(2, 6); // 4 ตัวอักษร (a-z0-9)
+  const segment = () => Math.floor(1000 + Math.random() * 9000).toString();
   return `${segment()}-${segment()}-${segment()}-${segment()}`;
 }
 
@@ -39,7 +39,13 @@ router.post("/register", async (req: Request, res: Response) => {
       data: { adminID, username, name, password: hashed },
     });
 
-    res.json({ message: "สร้าง Admin สำเร็จ", admin });
+    res.json({
+      message: "สร้าง Admin สำเร็จ",
+      adminID: admin.adminID,
+      username: admin.username,
+      name: admin.name,
+      createdAt: admin.createdAt,
+    });
   } catch {
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการสมัครสมาชิก" });
   }
@@ -64,19 +70,18 @@ router.post("/login", async (req: Request, res: Response) => {
         name: admin.name,
       },
       JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "10m" }
     );
 
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 60 * 60 * 1000,
+      maxAge: 10 * 60 * 1000,
     });
 
     res.json({
       message: "เข้าสู่ระบบสำเร็จ",
-      id: admin.id,
       adminID: admin.adminID,
       username: admin.username,
       name: admin.name,
@@ -112,7 +117,13 @@ router.get("/verify", (req: Request, res: Response) => {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const admins = await prisma.admin.findMany({
-      select: { id: true, username: true, name: true },
+      select: {
+        adminID: true,
+        username: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
     res.json(admins);
   } catch {
@@ -121,12 +132,18 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 // ✅ READ - แสดง Admin รายบุคคล
-router.get("/:id", async (req: Request, res: Response) => {
+router.get("/:adminID", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { adminID } = req.params;
     const admin = await prisma.admin.findUnique({
-      where: { id },
-      select: { id: true, username: true, name: true },
+      where: { adminID },
+      select: {
+        adminID: true,
+        username: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!admin) return res.status(404).json({ error: "ไม่พบ Admin" });
@@ -138,9 +155,9 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 // ✅ UPDATE - อัปเดต Admin
-router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
+router.put("/:adminID", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { adminID } = req.params;
     const { username, name, password } = req.body;
 
     const setPayload: any = {};
@@ -149,7 +166,7 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
     if (password) setPayload.password = await bcrypt.hash(password, 10);
 
     const updated = await prisma.admin.update({
-      where: { id },
+      where: { adminID },
       data: setPayload,
     });
 
@@ -160,16 +177,22 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
 });
 
 // ✅ DELETE - ลบ Admin
-router.delete("/:id", authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    await prisma.admin.delete({ where: { id } });
-    res.json({ message: "ลบ Admin สำเร็จ" });
-  } catch {
-    res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
+router.delete(
+  "/:adminID",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const { adminID } = req.params;
+      await prisma.admin.delete({
+        where: {
+          adminID,
+        },
+      });
+      res.json({ message: "ลบ Admin สำเร็จ" });
+    } catch {
+      res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
+    }
   }
-});
-
-
+);
 
 export default router;
