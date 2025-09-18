@@ -16,9 +16,10 @@ const MONGO_URI = process.env.MONGO_URI as string;
 const PORT = process.env.PORT || 10000;
 const prisma = new PrismaClient();
 
-mongoose.connect(MONGO_URI, {
-  dbName: "SmartDormDB",
-})
+mongoose
+  .connect(MONGO_URI, {
+    dbName: "SmartDormDB",
+  })
   .then(() => {
     console.log(" Connected to MongoDB database ");
   })
@@ -35,8 +36,22 @@ app.get("/", (req, res) => {
 });
 
 app.get("/test-db", async (req, res) => {
-  const admins = await prisma.admin.findMany();
-  res.json(admins);
+  try {
+    const admins = await prisma.admin.findMany({
+      select: {
+        id: true,
+        adminID: true,
+        username: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json(admins);
+  } catch (err) {
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
+  }
 });
 
 app.use("/admin", authRoutes);
