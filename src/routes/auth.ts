@@ -109,7 +109,7 @@ router.get("/verify", (req: Request, res: Response) => {
 // ---------------- ADMIN CRUD ----------------
 
 // ✅ READ - แสดง Admin ทั้งหมด
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const admins = await prisma.admin.findMany({
       select: { id: true, username: true, name: true },
