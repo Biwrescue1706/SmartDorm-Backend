@@ -5,8 +5,6 @@ import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
-
 dotenv.config();
 
 const app = express();
@@ -15,6 +13,8 @@ app.use(express.json());
 app.use(cookieParser());
 
 const MONGO_URI = process.env.MONGO_URI as string;
+const PORT = process.env.PORT || 10000;
+const prisma = new PrismaClient();
 
 mongoose.connect(MONGO_URI, {
   dbName: "SmartDormDB",
@@ -39,9 +39,8 @@ app.get("/test-db", async (req, res) => {
   res.json(admins);
 });
 
-app.use("/auth", authRoutes);
+app.use("/admin", authRoutes);
 
-const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

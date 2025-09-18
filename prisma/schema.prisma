@@ -1,57 +1,127 @@
 datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
+  provider = "mongodb" // ใช้ MongoDB เป็นฐานข้อมูล
+  url      = env("DATABASE_URL") // ดึง URL ฐานข้อมูลจาก .env
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-js" // ใช้ Prisma Client (สำหรับ Node.js/TS)
 }
 
 model Admin {
-  id       String @id @default(auto()) @map("_id") @db.ObjectId
-  username String @unique
-  name     String?
-  password String
-  role     String @default("admin") // เพิ่ม role ไว้เผื่ออนาคต
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของแอดมิน
+  adminID  String // รหัสแอดมิน
+  username String  @unique // ชื่อผู้ใช้ (ห้ามซ้ำ)
+  name     String? // ชื่อจริง (optional)
+  password String // รหัสผ่าน (เก็บแบบเข้ารหัส)
+
+  createdAt DateTime @default(now()) // วันที่สร้าง
+  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
+
+  createdRooms Room[] @relation("RoomCreatedBy") // ห้องที่สร้างโดยแอดมินนี้
+  updatedRooms Room[] @relation("RoomUpdatedBy") // ห้องที่แก้ไขโดยแอดมินนี้
+  createdBills Bill[] @relation("BillCreatedBy") // บิลที่สร้างโดยแอดมินนี้
+  updatedBills Bill[] @relation("BillUpdatedBy") // บิลที่แก้ไขโดยแอดมินนี้
 }
 
 model User {
-  id       String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId   String    @unique
-  name     String
-  phone    String
-  bookings Booking[]
+  id     String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของผู้ใช้
+  userId String @unique // รหัสผู้ใช้ (unique สำหรับระบบ)
+  mumId  String // เลขบัตรประชาชน / รหัสนักศึกษา
+  name   String // ชื่อจริงผู้เช่า
+  phone  String // เบอร์โทรศัพท์
+
+  bookings Booking[] // ห้องที่ผู้ใช้จอง
+  bills    Bill[] // บิลที่ผู้ใช้ได้รับ
+
+  createdAt DateTime @default(now()) // วันที่สมัคร
+  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
 }
 
 model Room {
-  id       String    @id @default(auto()) @map("_id") @db.ObjectId
-  number   String    @unique
-  size     String
-  price    Int
-  deposit  Int
-  status   String
-  bookings Booking[]
+  id      String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของห้อง
+  number  String @unique // หมายเลขห้อง (ไม่ซ้ำ)
+  size    String // ขนาดห้อง
+  rent    Int // ค่าเช่าห้อง
+  deposit Int // เงินมัดจำ
+  status  Int // สถานะห้อง (0 = ว่าง, 1 = มีคนอยู่)
+
+  createdBy String  @db.ObjectId // id แอดมินที่สร้าง
+  updatedBy String? @db.ObjectId // id แอดมินที่แก้ไข (nullable)
+  creator   Admin   @relation("RoomCreatedBy", fields: [createdBy], references: [id]) // แอดมินที่สร้างห้อง
+  updater   Admin?  @relation("RoomUpdatedBy", fields: [updatedBy], references: [id]) // แอดมินที่แก้ไขห้อง
+
+  bookings Booking[] // การจองทั้งหมดที่เชื่อมกับห้องนี้
+
+  createdAt DateTime @default(now()) // วันที่สร้าง
+  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
+  Bill      Bill[]
 }
 
 model Booking {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String    @db.ObjectId
-  roomId    String    @db.ObjectId
-  startDate DateTime
-  endDate   DateTime?
-  status    String
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของการจอง
+  userId   String    @db.ObjectId // ผู้เช่า (FK -> User)
+  roomId   String    @db.ObjectId // ห้อง (FK -> Room)
+  checkin  DateTime // วันที่เข้าพัก
+  checkout DateTime? // วันที่ย้ายออก (nullable)
+  status   Int // สถานะ (0 = active, 1 = checkout_requested, 2 = checked_out)
 
-  paymentId String?   @unique @db.ObjectId
-  payment   Payment?  @relation(fields: [paymentId], references: [id])
+  paymentId String?  @unique @db.ObjectId // การจ่ายเงิน (One-to-One)
+  payment   Payment? @relation(fields: [paymentId], references: [id]) // ความสัมพันธ์กับ Payment
 
-  user User @relation(fields: [userId], references: [id])
-  room Room @relation(fields: [roomId], references: [id])
+  user User @relation(fields: [userId], references: [id]) // ผู้ใช้ที่ทำการจอง
+  room Room @relation(fields: [roomId], references: [id]) // ห้องที่ถูกจอง
+
+  createdAt DateTime @default(now()) // วันที่สร้าง
+  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
+}
+
+model Bill {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของบิล
+  number String // เลขที่บิล
+
+  roomId     String   @db.ObjectId // ห้องที่ออกบิล (FK)
+  room       Room     @relation(fields: [roomId], references: [id]) // ความสัมพันธ์ไปยัง Room
+  roomNumber String // snapshot เลขห้องตอนออกบิล
+  month      DateTime // เดือนที่ออกบิล (เก็บเป็นวันที่ เช่น 2025-09-01)
+
+  rent    Int // ค่าเช่า
+  service Int // ค่าส่วนกลาง
+  wBefore Int // มิเตอร์น้ำเดือนก่อน
+  wAfter  Int // มิเตอร์น้ำเดือนนี้
+  wUnits  Int // จำนวนหน่วยน้ำ
+  wPrice  Int // ค่าน้ำ
+  eBefore Int // มิเตอร์ไฟเดือนก่อน
+  eAfter  Int // มิเตอร์ไฟเดือนนี้
+  eUnits  Int // จำนวนหน่วยไฟ
+  ePrice  Int // ค่าไฟ
+  fine    Int // ค่าปรับ
+  total   Int // รวมทั้งหมด
+  slipUrl String? // URL ของสลิปการโอนเงิน
+  status  Int // สถานะบิล (0 = ยังไม่จ่าย, 1 = จ่ายแล้ว)
+
+  userId    String  @db.ObjectId // ผู้เช่าที่ได้รับบิล (FK)
+  user      User    @relation(fields: [userId], references: [id]) // ความสัมพันธ์กับ User
+  createdBy String  @db.ObjectId // แอดมินที่สร้างบิล
+  updatedBy String? @db.ObjectId // แอดมินที่แก้ไขบิล (nullable)
+  creator   Admin   @relation("BillCreatedBy", fields: [createdBy], references: [id]) // ความสัมพันธ์กับ Admin (creator)
+  updater   Admin?  @relation("BillUpdatedBy", fields: [updatedBy], references: [id]) // ความสัมพันธ์กับ Admin (updater)
+
+  paymentId String?  @unique @db.ObjectId // การจ่ายเงินที่ผูกกับบิลนี้ (One-to-One)
+  payment   Payment? @relation(fields: [paymentId], references: [id]) // ความสัมพันธ์กับ Payment
+
+  createdAt DateTime @default(now()) // วันที่สร้าง
+  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
 }
 
 model Payment {
-  id      String   @id @default(auto()) @map("_id") @db.ObjectId
-  amount  Int
-  slipUrl String
-  status  String
-  booking Booking?
+  id      String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของการจ่ายเงิน
+  amount  Int // จำนวนเงินที่จ่าย
+  slipUrl String // URL สลิปโอนเงิน
+  status  Int // สถานะการจ่าย (0 = paid, 1 = pending)
+
+  booking Booking? // การจองที่เกี่ยวข้อง (optional)
+  bill    Bill? // บิลที่เกี่ยวข้อง (optional)
+
+  createdAt DateTime @default(now()) // วันที่สร้าง
+  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
 }
