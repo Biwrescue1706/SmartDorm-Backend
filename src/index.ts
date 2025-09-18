@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import cors from "cors";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 dotenv.config();
 
@@ -29,6 +32,11 @@ import authRoutes from "./routes/auth";
 
 app.get("/", (req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
+});
+
+app.get("/test-db", async (req, res) => {
+  const admins = await prisma.admin.findMany();
+  res.json(admins);
 });
 
 app.use("/auth", authRoutes);

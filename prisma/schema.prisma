@@ -10,8 +10,9 @@ generator client {
 model Admin {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
   username String @unique
-  name     String
+  name     String?
   password String
+  role     String @default("admin") // เพิ่ม role ไว้เผื่ออนาคต
 }
 
 model User {
@@ -40,20 +41,17 @@ model Booking {
   endDate   DateTime?
   status    String
 
-  // Booking เป็นเจ้าของ relation ไปหา Payment
-  paymentId String?  @unique @db.ObjectId
-  payment   Payment? @relation(fields: [paymentId], references: [id])
+  paymentId String?   @unique @db.ObjectId
+  payment   Payment?  @relation(fields: [paymentId], references: [id])
 
-  User User @relation(fields: [userId], references: [id])
-  Room Room @relation(fields: [roomId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  room Room @relation(fields: [roomId], references: [id])
 }
 
 model Payment {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
   amount  Int
   slipUrl String
   status  String
-
-  // Payment เชื่อมกับ Booking (ไม่ต้อง fields/references ซ้ำ)
   booking Booking?
 }
