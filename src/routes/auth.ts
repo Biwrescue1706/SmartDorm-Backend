@@ -1,7 +1,8 @@
-import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma";
+import { Router, Request, Response } from "express";
+
 const router = Router();
 
 // ✅ โหลด JWT_SECRET จาก .env
@@ -11,7 +12,7 @@ if (!JWT_SECRET) {
 }
 
 // ---------------- REGISTER ----------------
-router.post("/register", async (req, res) => {
+router.post("/register", async (req: Request , res: Response) => {
   try {
     const { username, password, name } = req.body;
 
@@ -37,7 +38,7 @@ router.post("/register", async (req, res) => {
 });
 
 // ---------------- LOGIN ----------------
-router.post("/login", async (req, res) => {
+router.post("/login", async (req: Request , res: Response) => {
   const { username, password } = req.body;
 
   try {
@@ -69,7 +70,7 @@ router.post("/login", async (req, res) => {
 });
 
 // ---------------- LOGOUT ----------------
-router.post("/logout", (req, res) => {
+router.get("/logout", (req, res) => {
   res.clearCookie("token");
   res.json({ message: "ออกจากระบบสำเร็จ" });
 });
