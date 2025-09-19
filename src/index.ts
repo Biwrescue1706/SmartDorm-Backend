@@ -7,8 +7,26 @@ import { PrismaClient } from "@prisma/client";
 
 dotenv.config();
 
+const allowedOrigins = [
+  "http://localhost:5173", // ⚡ frontend vite dev server
+  "https://smartdorm-frontend.onrender.com", // ⚡ เพิ่ม frontend ของ SmartDorm
+];
+
 const app = express();
-app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // allow เช่น Postman
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("❌ CORS not allowed"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 
