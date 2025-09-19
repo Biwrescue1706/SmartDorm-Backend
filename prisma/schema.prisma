@@ -38,23 +38,27 @@ model User {
 }
 
 model Room {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของห้อง
-  number  String @unique // หมายเลขห้อง (ไม่ซ้ำ)
-  size    String // ขนาดห้อง
-  rent    Int // ค่าเช่าห้อง
-  deposit Int // เงินมัดจำ
-  status  Int // สถานะห้อง (0 = ว่าง, 1 = มีคนอยู่)
+  id         String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของห้อง
+  number     String @unique // หมายเลขห้อง (ไม่ซ้ำ)
+  size       String // ขนาดห้อง
+  rent       Int // ค่าเช่าห้อง
+  deposit    Int // เงินมัดจำ
+  bookingFee Int // ค่าจองห้อง
+  status     Int // สถานะห้อง (0 = ว่าง, 1 = มีคนอยู่)
 
-  createdBy String  @db.ObjectId // id แอดมินที่สร้าง
-  updatedBy String? @db.ObjectId // id แอดมินที่แก้ไข (nullable)
-  creator   Admin   @relation("RoomCreatedBy", fields: [createdBy], references: [id]) // แอดมินที่สร้างห้อง
-  updater   Admin?  @relation("RoomUpdatedBy", fields: [updatedBy], references: [id]) // แอดมินที่แก้ไขห้อง
+  createdBy   String  @db.ObjectId // id แอดมินที่สร้าง 
+  createdName String // ✅ ชื่อแอดมินที่สร้าง
+  updatedBy   String? @db.ObjectId // id แอดมินที่แก้ไข (nullable)
+  updatedName String? // ✅ ชื่อแอดมินที่แก้ไข (nullable)
 
-  bookings Booking[] // การจองทั้งหมดที่เชื่อมกับห้องนี้
+  creator Admin  @relation("RoomCreatedBy", fields: [createdBy], references: [id])
+  updater Admin? @relation("RoomUpdatedBy", fields: [updatedBy], references: [id])
 
-  createdAt DateTime @default(now()) // วันที่สร้าง
-  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
-  Bill      Bill[]
+  bookings Booking[]
+  Bill     Bill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Booking {
@@ -76,41 +80,45 @@ model Booking {
 }
 
 model Bill {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของบิล
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
   number String // เลขที่บิล
 
-  roomId     String   @db.ObjectId // ห้องที่ออกบิล (FK)
-  room       Room     @relation(fields: [roomId], references: [id]) // ความสัมพันธ์ไปยัง Room
-  roomNumber String // snapshot เลขห้องตอนออกบิล
-  month      DateTime // เดือนที่ออกบิล (เก็บเป็นวันที่ เช่น 2025-09-01)
+  roomId     String @db.ObjectId
+  room       Room   @relation(fields: [roomId], references: [id])
+  roomNumber String // ✅ snapshot เลขห้องตอนออกบิล
+  month      DateTime
 
-  rent    Int // ค่าเช่า
-  service Int // ค่าส่วนกลาง
-  wBefore Int // มิเตอร์น้ำเดือนก่อน
-  wAfter  Int // มิเตอร์น้ำเดือนนี้
-  wUnits  Int // จำนวนหน่วยน้ำ
-  wPrice  Int // ค่าน้ำ
-  eBefore Int // มิเตอร์ไฟเดือนก่อน
-  eAfter  Int // มิเตอร์ไฟเดือนนี้
-  eUnits  Int // จำนวนหน่วยไฟ
-  ePrice  Int // ค่าไฟ
-  fine    Int // ค่าปรับ
-  total   Int // รวมทั้งหมด
-  slipUrl String? // URL ของสลิปการโอนเงิน
-  status  Int // สถานะบิล (0 = ยังไม่จ่าย, 1 = จ่ายแล้ว)
+  rent    Int
+  service Int
+  wBefore Int
+  wAfter  Int
+  wUnits  Int
+  wPrice  Int
+  eBefore Int
+  eAfter  Int
+  eUnits  Int
+  ePrice  Int
+  fine    Int
+  total   Int
+  slipUrl String?
+  status  Int
 
-  userId    String  @db.ObjectId // ผู้เช่าที่ได้รับบิล (FK)
-  user      User    @relation(fields: [userId], references: [id]) // ความสัมพันธ์กับ User
-  createdBy String  @db.ObjectId // แอดมินที่สร้างบิล
-  updatedBy String? @db.ObjectId // แอดมินที่แก้ไขบิล (nullable)
-  creator   Admin   @relation("BillCreatedBy", fields: [createdBy], references: [id]) // ความสัมพันธ์กับ Admin (creator)
-  updater   Admin?  @relation("BillUpdatedBy", fields: [updatedBy], references: [id]) // ความสัมพันธ์กับ Admin (updater)
+  userId      String  @db.ObjectId
+  user        User    @relation(fields: [userId], references: [id])
 
-  paymentId String?  @unique @db.ObjectId // การจ่ายเงินที่ผูกกับบิลนี้ (One-to-One)
-  payment   Payment? @relation(fields: [paymentId], references: [id]) // ความสัมพันธ์กับ Payment
+  createdBy   String  @db.ObjectId
+  createdName String
+  updatedBy   String? @db.ObjectId
+  updatedName String?
 
-  createdAt DateTime @default(now()) // วันที่สร้าง
-  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
+  creator     Admin   @relation("BillCreatedBy", fields: [createdBy], references: [id])
+  updater     Admin?  @relation("BillUpdatedBy", fields: [updatedBy], references: [id])
+
+  paymentId String?  @unique @db.ObjectId
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Payment {

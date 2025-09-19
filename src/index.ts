@@ -48,6 +48,7 @@ mongoose
 
 // routes
 import authRoutes from "./routes/auth";
+import roomRouter from "./routes/room";
 
 app.get("/", (req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
@@ -73,6 +74,7 @@ app.get("/test-db", async (req, res) => {
 });
 
 app.use("/admin", authRoutes);
+app.use("/room",roomRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
