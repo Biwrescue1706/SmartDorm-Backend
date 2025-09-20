@@ -28,26 +28,26 @@ router.get("/getall", async (req: Request, res: Response) => {
 });
 
 /**
- * ✅ ดึงข้อมูลห้องตาม id
+ * ✅ ดึงข้อมูลห้องตาม id (response เป็น array)
  * GET /room/:id
  */
 router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const room = await prisma.room.findUnique({
+    const room = await prisma.room.findMany({
       where: { id },
       include: {
-        bookings: true, // ดึงข้อมูล booking ของห้องนั้นด้วย
-        Bill: true,     // ดึงบิลทั้งหมดของห้องนั้นด้วย
+        bookings: true,
+        Bill: true,
       },
     });
 
-    if (!room) {
+    if (room.length === 0) {
       return res.status(404).json({ error: "❌ ไม่พบห้องที่ต้องการ" });
     }
 
-    res.json(room);
+    res.json(room); // ✅ ส่งออกมาเป็น array
   } catch (err) {
     console.error("❌ Error fetching room by id:", err);
     res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลห้องได้" });
