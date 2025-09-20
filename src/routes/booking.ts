@@ -22,8 +22,8 @@ router.post("/book", async (req: Request, res: Response) => {
   try {
     const { userId, roomId, checkin, name, phone, mumId } = req.body;
 
-    // ✅ หา user ถ้าไม่มีให้สร้าง
-    let user = await prisma.user.findFirst({ where: { userId } }); // เพราะ userId ไม่ unique แล้ว
+    // ✅ หา user จาก userId (ซ้ำได้ → ใช้ findFirst)
+    let user = await prisma.user.findFirst({ where: { userId } });
     if (!user) {
       user = await prisma.user.create({
         data: { userId, name, phone, mumId },
@@ -32,22 +32,20 @@ router.post("/book", async (req: Request, res: Response) => {
 
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
-    if (room.status !== 0) {
+    if (room.status !== 0)
       return res.status(400).json({ error: "ห้องนี้ถูกจองหรือไม่ว่าง" });
-    }
 
-    // กันไม่ให้ผู้ใช้จองหลายห้องพร้อมกัน
+    // ✅ กันไม่ให้จองหลายห้องพร้อมกัน
     const existing = await prisma.booking.findFirst({
       where: { userId: user.id, status: { in: [0, 1] } },
     });
-    if (existing) {
+    if (existing)
       return res.status(400).json({ error: "คุณมีการจองหรือเข้าพักอยู่แล้ว" });
-    }
 
     const [booking] = await prisma.$transaction([
       prisma.booking.create({
         data: {
-          user: { connect: { id: user.id } }, // ✅ connect ด้วย id
+          user: { connect: { id: user.id } }, // connect ด้วย id ที่ unique
           room: { connect: { id: roomId } },
           checkin: new Date(checkin),
           status: 0,
@@ -59,11 +57,11 @@ router.post("/book", async (req: Request, res: Response) => {
 
     // ✅ แจ้งเตือน LINE
     await notifyUser(
-      "Ud13f39623a835511f5972b35cbc5cdbd",
+      "Ud13f39623a835511f5972b35cbc5cdbd", // แจ้ง Admin
       `📢 ผู้ใช้ ${user.name} (${user.phone}) จองห้อง ${room.number}`
     );
     await notifyUser(
-      user.userId, // ใช้ userId ที่มาจาก LIFF สำหรับ push message
+      user.userId, // แจ้งผู้ใช้
       `🛏️ คุณได้จองห้อง ${room.number} เรียบร้อยแล้ว`
     );
 
@@ -75,7 +73,7 @@ router.post("/book", async (req: Request, res: Response) => {
 });
 
 /**
- * 📌 จองห้อง + แนบสลิป (เก็บ URL)
+ * 📌 จองห้อง + แนบสลิป
  */
 router.post("/create", upload.single("slip"), async (req: Request, res: Response) => {
   try {
@@ -84,7 +82,7 @@ router.post("/create", upload.single("slip"), async (req: Request, res: Response
 
     if (!slip) return res.status(400).json({ error: "กรุณาอัปโหลดสลิป" });
 
-    // ✅ หา user ถ้าไม่มีให้สร้าง
+    // ✅ หา user จาก userId (ซ้ำได้ → ใช้ findFirst)
     let user = await prisma.user.findFirst({ where: { userId } });
     if (!user) {
       user = await prisma.user.create({
@@ -94,21 +92,19 @@ router.post("/create", upload.single("slip"), async (req: Request, res: Response
 
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
-    if (room.status !== 0) {
+    if (room.status !== 0)
       return res.status(400).json({ error: "ห้องนี้ถูกจองหรือไม่ว่าง" });
-    }
 
     // ✅ เซฟไฟล์ slip
     const filename = `${Date.now()}_${slip.originalname}`;
     const filepath = path.join(UPLOAD_DIR, filename);
     fs.writeFileSync(filepath, slip.buffer);
-
     const slipUrl = `/uploads/${filename}`;
 
     const [booking] = await prisma.$transaction([
       prisma.booking.create({
         data: {
-          user: { connect: { id: user.id } }, // ✅ connect ด้วย id
+          user: { connect: { id: user.id } }, // connect ด้วย id
           room: { connect: { id: roomId } },
           checkin: new Date(checkin),
           slipUrl,
