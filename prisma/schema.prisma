@@ -72,7 +72,7 @@ model Booking {
 
   checkin  DateTime // วันที่เข้าพัก
   checkout DateTime? // วันที่ย้ายออก (nullable)
-  slip     Bytes? // ✅ เก็บรูปสลิปเป็น Binary
+  slipUrl  String?   // ✅ เก็บเป็น URL แทน Binary
   status   Int // สถานะ (0 = active, 1 = checkout_requested, 2 = checked_out)
 
   paymentId String?  @unique @db.ObjectId // การจ่ายเงิน (One-to-One)
