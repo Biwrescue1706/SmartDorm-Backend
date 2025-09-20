@@ -25,7 +25,7 @@ model Admin {
 
 model User {
   id     String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของผู้ใช้
-  userId String @unique // รหัสผู้ใช้ (unique สำหรับระบบ line liff)
+  userId String // LINE LIFF userId (อาจซ้ำได้)
   mumId  String // เลขบัตรประชาชน / รหัสนักศึกษา
   name   String // ชื่อจริงผู้เช่า
   phone  String // เบอร์โทรศัพท์
@@ -138,12 +138,4 @@ model Payment {
 
   createdAt DateTime @default(now()) // วันที่สร้าง
   updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
-}
-
-model WebhookLog {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String
-  event     String
-  message   String
-  createdAt DateTime @default(now())
 }

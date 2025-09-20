@@ -1,36 +1,23 @@
+// src/utils/lineNotify.ts
 import fetch from "node-fetch";
 
-const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!;
-
-/**
- * ส่งข้อความไปยัง userId ผ่าน LINE Messaging API
- */
-export async function notifyUser(userId: string, message: string) {
+export async function notifyUser(to: string, message: string) {
   try {
-    const res = await fetch("https://api.line.me/v2/bot/message/push", {
+    const resp = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${process.env.LINE_CHANNEL_TOKEN}`, // ต้องเซ็ตใน .env
       },
       body: JSON.stringify({
-        to: userId,
-        messages: [
-          {
-            type: "text",
-            text: message,
-          },
-        ],
+        to,
+        messages: [{ type: "text", text: message }],
       }),
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("❌ LINE API Error:", errorText);
-    } else {
-      console.log(`✅ Sent LINE message to ${userId}: ${message}`);
-    }
+    const result = await resp.json();
+    console.log("LINE notify result:", result);
   } catch (err) {
-    console.error("❌ notifyUser error:", err);
+    console.error("LINE notify error:", err);
   }
 }

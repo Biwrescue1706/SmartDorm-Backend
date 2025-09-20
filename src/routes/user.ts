@@ -14,11 +14,19 @@ router.post("/register", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
     }
 
-    const user = await prisma.user.upsert({
-      where: { userId },
-      update: { mumId, name, phone, updatedAt: new Date() },
-      create: { userId, mumId, name, phone },
-    });
+    // 🔎 หาด้วย userId (ไม่ unique)
+    let user = await prisma.user.findFirst({ where: { userId } });
+
+    if (user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { mumId, name, phone, updatedAt: new Date() },
+      });
+    } else {
+      user = await prisma.user.create({
+        data: { userId, mumId, name, phone },
+      });
+    }
 
     res.json({ message: "✅ สมัคร/อัปเดต User สำเร็จ", user });
   } catch (err) {
@@ -34,7 +42,7 @@ router.get("/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: { userId },
       include: {
         bookings: {
@@ -64,43 +72,47 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: { userId },
       include: {
-        bills: {
-          include: { payment: true, room: true },
-        },
-        bookings: {
-          include: { payment: true, room: true },
-        },
+        bills: { include: { payment: true, room: true } },
+        bookings: { include: { payment: true, room: true } },
       },
     });
 
     if (!user) return res.status(404).json({ error: "ไม่พบ User" });
 
-    // ✅ รวม payment จากทั้ง Bill และ Booking
+    // ✅ รวม payments จากทั้ง Bill และ Booking
     const payments = [
       ...user.bills
-        .filter(b => b.payment)
-        .map(b => ({
-          type: "bill",
+        .filter(
+          (b): b is typeof user.bills[number] & {
+            payment: NonNullable<typeof b.payment>;
+          } => !!b.payment
+        )
+        .map((b) => ({
+          type: "bill" as const,
           billNumber: b.number,
           roomNumber: b.roomNumber,
-          amount: b.payment!.amount,
-          slipUrl: b.payment!.slipUrl,
-          status: b.payment!.status,
-          createdAt: b.payment!.createdAt,
+          amount: b.payment.amount,
+          slipUrl: b.payment.slipUrl,
+          status: b.payment.status,
+          createdAt: b.payment.createdAt,
         })),
       ...user.bookings
-        .filter(bk => bk.payment)
-        .map(bk => ({
-          type: "booking",
+        .filter(
+          (bk): bk is typeof user.bookings[number] & {
+            payment: NonNullable<typeof bk.payment>;
+          } => !!bk.payment
+        )
+        .map((bk) => ({
+          type: "booking" as const,
           bookingId: bk.id,
           roomNumber: bk.room.number,
-          amount: bk.payment!.amount,
-          slipUrl: bk.payment!.slipUrl,
-          status: bk.payment!.status,
-          createdAt: bk.payment!.createdAt,
+          amount: bk.payment.amount,
+          slipUrl: bk.payment.slipUrl,
+          status: bk.payment.status,
+          createdAt: bk.payment.createdAt,
         })),
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 

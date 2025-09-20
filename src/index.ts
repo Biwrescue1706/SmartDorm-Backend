@@ -56,7 +56,6 @@ import billsRouter from "./routes/bill";
 import bookingRouter from "./routes/booking";
 import paymentRouter from "./routes/payment";
 import userRouter from "./routes/user";
-import webhookRouter from "./routes/webhook"
 
 app.get("/", (_req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
@@ -88,7 +87,6 @@ app.use("/bills", billsRouter);
 app.use("/booking", bookingRouter);
 app.use("/payment", paymentRouter);
 app.use("/user", userRouter);
-app.use("/webhook",webhookRouter)
 
 // ✅ Global error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
