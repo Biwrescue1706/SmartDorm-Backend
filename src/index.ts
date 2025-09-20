@@ -49,7 +49,8 @@ mongoose
   });
 
 // routes
-import authRoutes from "./routes/auth";
+import adminRouter from "./routes/admin";
+import authRouter from "./routes/auth"
 import roomRouter from "./routes/room";
 import billsRouter from "./routes/bill";
 import bookingRouter from "./routes/booking";
@@ -80,7 +81,8 @@ app.get("/test-db", async (_req, res) => {
 });
 
 // ✅ Register routes
-app.use("/admin", authRoutes);
+app.use("/auth",authRouter)
+app.use("/admin", adminRouter);
 app.use("/room", roomRouter);
 app.use("/bills", billsRouter);
 app.use("/booking", bookingRouter);
