@@ -38,15 +38,17 @@ router.post("/book", async (req: Request, res: Response) => {
           room: { connect: { id: roomId } },
           checkin: new Date(checkin),
           status: 0,
-          slip: Buffer.from(""), // 👈 ไม่ใช้ null แล้ว
+          slip: Buffer.from(""), // 👈 กัน TypeScript error
         },
       }),
       prisma.room.update({ where: { id: roomId }, data: { status: 1 } }),
     ]);
 
     // แจ้งเตือน
-    await notifyUser("Ud13f39623a835511f5972b35cbc5cdbd",
-      `📢 ผู้ใช้ ${user.name} (${user.phone}) จองห้อง ${room.number}`);
+    await notifyUser(
+      "Ud13f39623a835511f5972b35cbc5cdbd",
+      `📢 ผู้ใช้ ${user.name} (${user.phone}) จองห้อง ${room.number}`
+    );
     await notifyUser(user.userId, `🛏️ คุณได้จองห้อง ${room.number} เรียบร้อยแล้ว`);
 
     res.json({ message: "✅ จองห้องสำเร็จ", booking });
@@ -79,10 +81,18 @@ router.post("/checkout", async (req: Request, res: Response) => {
       prisma.room.update({ where: { id: booking.roomId }, data: { status: 0 } }),
     ]);
 
-    await notifyUser("Ud13f39623a835511f5972b35cbc5cdbd",
-      `📢 ผู้ใช้ ${updated.user.name} (${updated.user.phone}) คืนห้อง ${updated.room.number}`);
-    await notifyUser(updated.user.userId,
-      `📤 คุณได้คืนห้อง ${updated.room.number} เรียบร้อยแล้ว`);
+    // ✅ เช็คก่อนว่า user ไม่เป็น null
+    if (updated.user) {
+      await notifyUser(
+        "Ud13f39623a835511f5972b35cbc5cdbd",
+        `📢 ผู้ใช้ ${updated.user.name} (${updated.user.phone}) คืนห้อง ${updated.room.number}`
+      );
+
+      await notifyUser(
+        updated.user.userId,
+        `📤 คุณได้คืนห้อง ${updated.room.number} เรียบร้อยแล้ว`
+      );
+    }
 
     res.json({ message: "✅ คืนห้องสำเร็จ", booking: updated });
   } catch (err) {

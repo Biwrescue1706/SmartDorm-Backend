@@ -62,23 +62,23 @@ model Room {
 }
 
 model Booking {
-  id       String    @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของการจอง
-  userId   String    @db.ObjectId // ผู้เช่า (FK -> User)
-  roomId   String    @db.ObjectId // ห้อง (FK -> Room)
-  
-  name        String?  // ✅ ชื่อผู้จอง
-  surname     String?  // ✅ นามสกุลผู้จอง
-  phone       String?  // ✅ เบอร์โทร
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของการจอง
+  userId String? @db.ObjectId // ผู้เช่า (FK -> User)
+  roomId String  @db.ObjectId // ห้อง (FK -> Room)
+
+  name    String? // ✅ ชื่อผู้จอง
+  surname String? // ✅ นามสกุลผู้จอง
+  phone   String? // ✅ เบอร์โทร
 
   checkin  DateTime // วันที่เข้าพัก
   checkout DateTime? // วันที่ย้ายออก (nullable)
-  slip        Bytes?    // ✅ เก็บรูปสลิปเป็น Binary
+  slip     Bytes? // ✅ เก็บรูปสลิปเป็น Binary
   status   Int // สถานะ (0 = active, 1 = checkout_requested, 2 = checked_out)
 
   paymentId String?  @unique @db.ObjectId // การจ่ายเงิน (One-to-One)
   payment   Payment? @relation(fields: [paymentId], references: [id]) // ความสัมพันธ์กับ Payment
 
-  user User @relation(fields: [userId], references: [id]) // ผู้ใช้ที่ทำการจอง
+  user User? @relation(fields: [userId], references: [id]) // ผู้ใช้ที่ทำการจอง
   room Room @relation(fields: [roomId], references: [id]) // ห้องที่ถูกจอง
 
   createdAt DateTime @default(now()) // วันที่สร้าง
@@ -89,8 +89,8 @@ model Bill {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
   number String // เลขที่บิล
 
-  roomId     String @db.ObjectId
-  room       Room   @relation(fields: [roomId], references: [id])
+  roomId     String   @db.ObjectId
+  room       Room     @relation(fields: [roomId], references: [id])
   roomNumber String // ✅ snapshot เลขห้องตอนออกบิล
   month      DateTime
 
@@ -109,16 +109,16 @@ model Bill {
   slipUrl String?
   status  Int
 
-  userId      String  @db.ObjectId
-  user        User    @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
 
   createdBy   String  @db.ObjectId
   createdName String
   updatedBy   String? @db.ObjectId
   updatedName String?
 
-  creator     Admin   @relation("BillCreatedBy", fields: [createdBy], references: [id])
-  updater     Admin?  @relation("BillUpdatedBy", fields: [updatedBy], references: [id])
+  creator Admin  @relation("BillCreatedBy", fields: [createdBy], references: [id])
+  updater Admin? @relation("BillUpdatedBy", fields: [updatedBy], references: [id])
 
   paymentId String?  @unique @db.ObjectId
   payment   Payment? @relation(fields: [paymentId], references: [id])
