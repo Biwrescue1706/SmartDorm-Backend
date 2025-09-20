@@ -11,7 +11,7 @@ const router = Router();
  * ✅ ดึงห้องทั้งหมด
  * GET /room/getall
  */
-router.get("/getall", authMiddleware, async (req: Request, res: Response) => {
+router.get("/getall", async (req: Request, res: Response) => {
   try {
     const rooms = await prisma.room.findMany({
       include: {
