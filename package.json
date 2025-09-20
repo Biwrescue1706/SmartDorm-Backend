@@ -23,6 +23,7 @@
   "description": "",
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.1.2",
+    "@line/bot-sdk": "^10.2.0",
     "@prisma/client": "^6.16.2",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
@@ -37,6 +38,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.19.0",
     "mongoose": "^8.18.1",
+    "node-fetch": "^3.3.2",
     "nodemon": "^3.1.10",
     "object-hash": "^3.0.0",
     "pino": "^9.4.0",

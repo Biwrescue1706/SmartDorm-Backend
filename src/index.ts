@@ -49,12 +49,17 @@ mongoose
 // routes
 import authRoutes from "./routes/auth";
 import roomRouter from "./routes/room";
+import billsRouter from "./routes/bill";
+import bookingRouter from "./routes/booking";
+import paymentRouter from "./routes/payment";
+import userRouter from "./routes/user";
+import webhookRouter from "./routes/webhook"
 
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
 });
 
-app.get("/test-db", async (req, res) => {
+app.get("/test-db", async (_req, res) => {
   try {
     const admins = await prisma.admin.findMany({
       select: {
@@ -65,7 +70,6 @@ app.get("/test-db", async (req, res) => {
         updatedAt: true,
       },
     });
-
     res.json(admins);
   } catch (err: any) {
     console.error("❌ Prisma error:", err);
@@ -73,8 +77,24 @@ app.get("/test-db", async (req, res) => {
   }
 });
 
+// ✅ Register routes
 app.use("/admin", authRoutes);
-app.use("/room",roomRouter);
+app.use("/room", roomRouter);
+app.use("/bills", billsRouter);
+app.use("/booking", bookingRouter);
+app.use("/payment", paymentRouter);
+app.use("/user", userRouter);
+app.use("/webhook",webhookRouter)
+
+// ✅ Global error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("❌ Global Error:", err);
+  res.status(500).json({ error: err.message || "Server error" });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
