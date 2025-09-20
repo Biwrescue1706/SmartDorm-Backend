@@ -9,6 +9,7 @@ dotenv.config();
 
 const allowedOrigins = [
   "http://localhost:5173", // ⚡ frontend vite dev server
+  "http://localhost:5174", // ⚡ frontend vite dev server
   "https://smartdorm-frontend.onrender.com", // ⚡ เพิ่ม frontend ของ SmartDorm
 ];
 
