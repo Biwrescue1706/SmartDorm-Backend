@@ -65,8 +65,14 @@ model Booking {
   id       String    @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของการจอง
   userId   String    @db.ObjectId // ผู้เช่า (FK -> User)
   roomId   String    @db.ObjectId // ห้อง (FK -> Room)
+  
+  name        String?  // ✅ ชื่อผู้จอง
+  surname     String?  // ✅ นามสกุลผู้จอง
+  phone       String?  // ✅ เบอร์โทร
+
   checkin  DateTime // วันที่เข้าพัก
   checkout DateTime? // วันที่ย้ายออก (nullable)
+  slip        Bytes?    // ✅ เก็บรูปสลิปเป็น Binary
   status   Int // สถานะ (0 = active, 1 = checkout_requested, 2 = checked_out)
 
   paymentId String?  @unique @db.ObjectId // การจ่ายเงิน (One-to-One)
@@ -132,4 +138,12 @@ model Payment {
 
   createdAt DateTime @default(now()) // วันที่สร้าง
   updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
+}
+
+model WebhookLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  event     String
+  message   String
+  createdAt DateTime @default(now())
 }
