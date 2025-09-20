@@ -20,11 +20,15 @@ const upload = multer({ storage: multer.memoryStorage() });
  */
 router.post("/book", async (req: Request, res: Response) => {
   try {
-    const { userId, roomId, checkin } = req.body;
+    const { userId, roomId, checkin, name, phone, mumId } = req.body;
 
-    // ✅ ตรวจสอบ userId ที่ได้จาก LINE
-    const user = await prisma.user.findUnique({ where: { userId } });
-    if (!user) return res.status(404).json({ error: "ไม่พบผู้ใช้" });
+    // ✅ หา user ถ้าไม่มีให้สร้าง
+    let user = await prisma.user.findUnique({ where: { userId } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: { userId, name, phone, mumId },
+      });
+    }
 
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
@@ -72,13 +76,18 @@ router.post("/book", async (req: Request, res: Response) => {
  */
 router.post("/create", upload.single("slip"), async (req: Request, res: Response) => {
   try {
-    const { userId, roomId, checkin } = req.body;
+    const { userId, roomId, checkin, name, phone, mumId } = req.body;
     const slip = req.file;
 
     if (!slip) return res.status(400).json({ error: "กรุณาอัปโหลดสลิป" });
 
-    const user = await prisma.user.findUnique({ where: { userId } });
-    if (!user) return res.status(404).json({ error: "ไม่พบผู้ใช้" });
+    // ✅ หา user ถ้าไม่มีให้สร้าง
+    let user = await prisma.user.findUnique({ where: { userId } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: { userId, name, phone, mumId },
+      });
+    }
 
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
