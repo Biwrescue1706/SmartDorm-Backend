@@ -38,7 +38,8 @@ router.post("/register", async (req: Request, res: Response) => {
       name: admin.name,
       createdAt: admin.createdAt,
     });
-  } catch {
+  } catch (err) {
+    console.error("❌ Register error:", err);
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการสมัครสมาชิก" });
   }
 });
@@ -58,23 +59,21 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "รหัสผ่านไม่ถูกต้อง" });
     }
 
-    // ✅ ตรงนี้ต้องใส่ adminId เข้า payload ด้วย
+    // ✅ สร้าง token
     const token = jwt.sign(
-      {
-        adminId: admin.adminId, // 👈 สำคัญที่สุด
-        username: admin.username,
-        name: admin.name,
-      },
+      { adminId: admin.adminId, username: admin.username, name: admin.name },
       JWT_SECRET,
       { expiresIn: "1d" }
     );
 
+    // ✅ เซ็ต cookie (cross-site)
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,      // Render ใช้ HTTPS อยู่แล้ว
+      sameSite: "none",  // ต้องเป็น none ไม่งั้น Safari/iPad จะไม่ส่ง cookie
     });
 
-    res.json({ message: "✅ เข้าสู่ระบบสำเร็จ", token });
+    res.json({ message: "✅ เข้าสู่ระบบสำเร็จ" });
   } catch (err) {
     console.error("❌ Login error:", err);
     res.status(500).json({ error: "ไม่สามารถเข้าสู่ระบบได้" });
@@ -85,8 +84,8 @@ router.post("/login", async (req: Request, res: Response) => {
 router.get("/logout", (req: Request, res: Response) => {
   res.clearCookie("token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: true,
+    sameSite: "none",
   });
   res.json({ message: "ออกจากระบบสำเร็จ" });
 });
@@ -97,7 +96,7 @@ router.get("/verify", (req: Request, res: Response) => {
   if (!token) return res.status(401).json({ error: "ไม่มี token" });
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
     res.json({ valid: true, decoded });
   } catch (err: any) {
     res.status(401).json({ valid: false, error: err.message });
@@ -105,9 +104,7 @@ router.get("/verify", (req: Request, res: Response) => {
 });
 
 // ---------------- ADMIN CRUD ----------------
-
-// ✅ READ - แสดง Admin ทั้งหมด
-router.get("/getall", async (req: Request, res: Response) => {
+router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const admins = await prisma.admin.findMany({
       select: {
@@ -119,12 +116,12 @@ router.get("/getall", async (req: Request, res: Response) => {
       },
     });
     res.json(admins);
-  } catch {
+  } catch (err) {
+    console.error("❌ GetAll Admin error:", err);
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
   }
 });
 
-// ✅ READ - แสดง Admin รายบุคคล
 router.get("/:adminId", async (req: Request, res: Response) => {
   try {
     const { adminId } = req.params;
@@ -142,12 +139,12 @@ router.get("/:adminId", async (req: Request, res: Response) => {
     if (!admin) return res.status(404).json({ error: "ไม่พบ Admin" });
 
     res.json(admin);
-  } catch {
+  } catch (err) {
+    console.error("❌ Get Admin error:", err);
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
   }
 });
 
-// ✅ UPDATE - อัปเดต Admin
 router.put("/:adminId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { adminId } = req.params;
@@ -164,28 +161,21 @@ router.put("/:adminId", authMiddleware, async (req: Request, res: Response) => {
     });
 
     res.json({ message: "อัปเดต Admin สำเร็จ", updated });
-  } catch {
+  } catch (err) {
+    console.error("❌ Update Admin error:", err);
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัปเดต Admin" });
   }
 });
 
-// ✅ DELETE - ลบ Admin
-router.delete(
-  "/:adminId",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const { adminId } = req.params;
-      await prisma.admin.delete({
-        where: {
-          adminId,
-        },
-      });
-      res.json({ message: "ลบ Admin สำเร็จ" });
-    } catch {
-      res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
-    }
+router.delete("/:adminId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { adminId } = req.params;
+    await prisma.admin.delete({ where: { adminId } });
+    res.json({ message: "ลบ Admin สำเร็จ" });
+  } catch (err) {
+    console.error("❌ Delete Admin error:", err);
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
   }
-);
+});
 
 export default router;

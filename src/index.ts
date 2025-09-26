@@ -8,20 +8,21 @@ import { PrismaClient } from "@prisma/client";
 dotenv.config();
 
 const allowedOrigins = [
-  "http://localhost:5173", // ⚡ frontend vite dev server
-  "http://localhost:5174", // ⚡ frontend vite dev server
-  "https://smartdorm-frontend.onrender.com", // ⚡ เพิ่ม frontend ของ SmartDorm
-  "https://smartdorm-line-liff.onrender.com", // ⚡ เพิ่ม frontend ของ SmartDorm
+  "http://localhost:5173", // frontend dev
+  "http://localhost:5174", // frontend dev
+  "https://smartdorm-frontend.onrender.com", // frontend render
+  "https://smartdorm-line-liff.onrender.com", // liff
 ];
 
 const app = express();
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow เช่น Postman
+      if (!origin) return callback(null, true); // ✅ allow เช่น Safari/ Postman
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.warn("❌ Blocked by CORS:", origin);
         callback(new Error("❌ CORS not allowed"));
       }
     },
@@ -37,20 +38,15 @@ const PORT = process.env.PORT || 10000;
 const prisma = new PrismaClient();
 
 mongoose
-  .connect(MONGO_URI, {
-    dbName: "SmartDormDB",
-  })
-  .then(() => {
-    console.log(" Connected to MongoDB database ");
-  })
+  .connect(MONGO_URI, { dbName: "SmartDormDB" })
+  .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err: unknown) => {
-    console.error("MongoDB connection error:", err);
+    console.error("❌ MongoDB connection error:", err);
     process.exit(1);
   });
 
 // routes
 import adminRouter from "./routes/admin";
-import authRouter from "./routes/auth"
 import roomRouter from "./routes/room";
 import billsRouter from "./routes/bill";
 import bookingRouter from "./routes/booking";
@@ -61,6 +57,7 @@ app.get("/", (_req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
 });
 
+// test prisma
 app.get("/test-db", async (_req, res) => {
   try {
     const admins = await prisma.admin.findMany({
@@ -75,12 +72,11 @@ app.get("/test-db", async (_req, res) => {
     res.json(admins);
   } catch (err: any) {
     console.error("❌ Prisma error:", err);
-    res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล", detail: err.message });
+    res.status(500).json({ error: "เกิดข้อผิดพลาด", detail: err.message });
   }
 });
 
 // ✅ Register routes
-app.use("/auth",authRouter)
 app.use("/admin", adminRouter);
 app.use("/room", roomRouter);
 app.use("/bills", billsRouter);
