@@ -1,141 +1,130 @@
-datasource db {
-  provider = "mongodb" // ใช้ MongoDB เป็นฐานข้อมูล
-  url      = env("DATABASE_URL") // ดึง URL ฐานข้อมูลจาก .env
+generator client {
+  provider = "prisma-client-js"
 }
 
-generator client {
-  provider = "prisma-client-js" // ใช้ Prisma Client (สำหรับ Node.js/TS)
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 model Admin {
-  id       String  @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของแอดมิน
-  adminID  String  @unique // รหัสแอดมิน
-  username String  @unique // ชื่อผู้ใช้ (ห้ามซ้ำ)
-  name     String? // ชื่อจริง (optional)
-  password String // รหัสผ่าน (เก็บแบบเข้ารหัส)
+  adminId   String   @id @default(auto()) @map("_id") @db.ObjectId
+  username  String   @unique
+  name      String
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt DateTime @default(now()) // วันที่สร้าง
-  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
-
-  createdRooms Room[] @relation("RoomCreatedBy") // ห้องที่สร้างโดยแอดมินนี้
-  updatedRooms Room[] @relation("RoomUpdatedBy") // ห้องที่แก้ไขโดยแอดมินนี้
-  createdBills Bill[] @relation("BillCreatedBy") // บิลที่สร้างโดยแอดมินนี้
-  updatedBills Bill[] @relation("BillUpdatedBy") // บิลที่แก้ไขโดยแอดมินนี้
-}
-
-model User {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของผู้ใช้
-  userId String // LINE LIFF userId (อาจซ้ำได้)
-  mumId  String // เลขบัตรประชาชน / รหัสนักศึกษา
-  name   String // ชื่อจริงผู้เช่า
-  phone  String // เบอร์โทรศัพท์
-
-  bookings Booking[] // ห้องที่ผู้ใช้จอง
-  bills    Bill[] // บิลที่ผู้ใช้ได้รับ
-
-  createdAt DateTime @default(now()) // วันที่สมัคร
-  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
+  roomsCreated Room[] @relation("RoomCreatedBy")
+  roomsUpdated Room[] @relation("RoomUpdatedBy")
+  billsCreated Bill[] @relation("BillCreatedBy")
+  billsUpdated Bill[] @relation("BillUpdatedBy")
 }
 
 model Room {
-  id         String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของห้อง
-  number     String @unique // หมายเลขห้อง (ไม่ซ้ำ)
-  size       String // ขนาดห้อง
-  rent       Int // ค่าเช่าห้อง
-  deposit    Int // เงินมัดจำ
-  bookingFee Int // ค่าจองห้อง
-  status     Int // สถานะห้อง (0 = ว่าง, 1 = มีคนอยู่)
+  roomId     String   @id @default(auto()) @map("_id") @db.ObjectId
+  number     String   @unique
+  size       String
+  rent       Int
+  deposit    Int
+  bookingFee Int
+  status     Int // 0 ว่าง 1 เต็ม
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  createdBy   String  @db.ObjectId // id แอดมินที่สร้าง 
-  createdName String // ✅ ชื่อแอดมินที่สร้าง
-  updatedBy   String? @db.ObjectId // id แอดมินที่แก้ไข (nullable)
-  updatedName String? // ✅ ชื่อแอดมินที่แก้ไข (nullable)
+  createdBy String  @db.ObjectId
+  updatedBy String? @db.ObjectId
 
-  creator Admin  @relation("RoomCreatedBy", fields: [createdBy], references: [id])
-  updater Admin? @relation("RoomUpdatedBy", fields: [updatedBy], references: [id])
+  // ✅ ทำให้ optional จะได้ไม่ต้องส่ง adminCreated เวลา create
+  adminCreated Admin? @relation("RoomCreatedBy", fields: [createdBy], references: [adminId])
+  adminUpdated Admin? @relation("RoomUpdatedBy", fields: [updatedBy], references: [adminId])
 
   bookings Booking[]
-  Bill     Bill[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  bills    Bill[]
 }
 
-model Booking {
-  id     String  @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของการจอง
-  userId String? @db.ObjectId // ผู้เช่า (FK -> User)
-  roomId String  @db.ObjectId // ห้อง (FK -> Room)
+model Customer {
+  customerId String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique // LINE LIFF userId
+  cname      String
+  csurname   String
+  fullName   String
+  cphone     String
+  cmumId     String
+  createdAt  DateTime @default(now())
 
-  name    String? // ✅ ชื่อผู้จอง
-  surname String? // ✅ นามสกุลผู้จอง
-  phone   String? // ✅ เบอร์โทร
-
-  checkin  DateTime // วันที่เข้าพัก
-  checkout DateTime? // วันที่ย้ายออก (nullable)
-  slipUrl  String?   // ✅ เก็บเป็น URL แทน Binary
-  status   Int // สถานะ (0 = active, 1 = checkout_requested, 2 = checked_out)
-
-  paymentId String?  @unique @db.ObjectId // การจ่ายเงิน (One-to-One)
-  payment   Payment? @relation(fields: [paymentId], references: [id]) // ความสัมพันธ์กับ Payment
-
-  user User? @relation(fields: [userId], references: [id]) // ผู้ใช้ที่ทำการจอง
-  room Room @relation(fields: [roomId], references: [id]) // ห้องที่ถูกจอง
-
-  createdAt DateTime @default(now()) // วันที่สร้าง
-  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
-}
-
-model Bill {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  number String // เลขที่บิล
-
-  roomId     String   @db.ObjectId
-  room       Room     @relation(fields: [roomId], references: [id])
-  roomNumber String // ✅ snapshot เลขห้องตอนออกบิล
-  month      DateTime
-
-  rent    Int
-  service Int
-  wBefore Int
-  wAfter  Int
-  wUnits  Int
-  wPrice  Int
-  eBefore Int
-  eAfter  Int
-  eUnits  Int
-  ePrice  Int
-  fine    Int
-  total   Int
-  slipUrl String?
-  status  Int
-
-  userId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id])
-
-  createdBy   String  @db.ObjectId
-  createdName String
-  updatedBy   String? @db.ObjectId
-  updatedName String?
-
-  creator Admin  @relation("BillCreatedBy", fields: [createdBy], references: [id])
-  updater Admin? @relation("BillUpdatedBy", fields: [updatedBy], references: [id])
-
-  paymentId String?  @unique @db.ObjectId
-  payment   Payment? @relation(fields: [paymentId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  bookings Booking[]
+  bills    Bill[]
 }
 
 model Payment {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId // ObjectId ของการจ่ายเงิน
-  amount  Int // จำนวนเงินที่จ่าย
-  slipUrl String // URL สลิปโอนเงิน
-  status  Int // สถานะการจ่าย (0 = paid, 1 = pending)
+  paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
+  slipUrl   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  booking Booking? // การจองที่เกี่ยวข้อง (optional)
-  bill    Bill? // บิลที่เกี่ยวข้อง (optional)
+  booking Booking?
+  bill    Bill?
+}
 
-  createdAt DateTime @default(now()) // วันที่สร้าง
-  updatedAt DateTime @updatedAt // วันที่แก้ไขล่าสุด
+model Booking {
+  bookingId String   @id @default(auto()) @map("_id") @db.ObjectId
+  checkin   DateTime
+  checkout  DateTime
+  slipUrl   String
+  status    Int // 0 รออนุมัติ, 1 อนุมัติ, 2 ไม่อนุมัติ
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // FK -> Customer
+  customerId String   @db.ObjectId
+  customer   Customer @relation(fields: [customerId], references: [customerId])
+
+  // FK -> Room
+  roomId String @db.ObjectId
+  room   Room   @relation(fields: [roomId], references: [roomId])
+
+  // FK -> Payment
+  paymentId String?  @unique @db.ObjectId
+  payment   Payment? @relation(fields: [paymentId], references: [paymentId])
+}
+
+model Bill {
+  billId    String   @id @default(auto()) @map("_id") @db.ObjectId
+  number    String   @unique
+  month     DateTime
+  rent      Int
+  service   Int
+  wBefore   Int
+  wAfter    Int
+  wUnits    Int
+  wPrice    Int
+  eBefore   Int
+  eAfter    Int
+  eUnits    Int
+  ePrice    Int
+  fine      Int
+  total     Int
+  slipUrl   String
+  status    Int // 0 ยังไม่ชำระ 1 ชำระแล้ว
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // FK -> Room
+  roomId String @db.ObjectId
+  room   Room   @relation(fields: [roomId], references: [roomId])
+
+  // FK -> Customer
+  customerId String   @db.ObjectId
+  customer   Customer @relation(fields: [customerId], references: [customerId])
+
+  // FK -> Admin
+  createdBy    String  @db.ObjectId
+  updatedBy    String? @db.ObjectId
+  adminCreated Admin?  @relation("BillCreatedBy", fields: [createdBy], references: [adminId])
+  adminUpdated Admin?  @relation("BillUpdatedBy", fields: [updatedBy], references: [adminId])
+
+  // FK -> Payment
+  paymentId String?  @unique @db.ObjectId
+  payment   Payment? @relation(fields: [paymentId], references: [paymentId])
 }

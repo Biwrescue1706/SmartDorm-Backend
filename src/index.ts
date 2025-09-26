@@ -65,7 +65,7 @@ app.get("/test-db", async (_req, res) => {
   try {
     const admins = await prisma.admin.findMany({
       select: {
-        adminID: true,
+        adminId: true,
         username: true,
         name: true,
         createdAt: true,

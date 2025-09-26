@@ -1,38 +1,32 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET: string = process.env.JWT_SECRET as string;
-if (!JWT_SECRET) {
-  throw new Error("❌ JWT_SECRET must be defined in .env file");
-}
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  const token =
-    req.cookies?.token ||
-    (authHeader && authHeader.startsWith("Bearer ")
-      ? authHeader.split(" ")[1]
-      : null);
-
-  if (!token) {
-    return res.status(401).json({ error: "Unauthorized: ไม่มี token" });
-  }
+export function authMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      adminId: string;
+      username: string;
+      name: string;
+    };
 
     req.admin = {
-      id: decoded.id,
-      adminID: decoded.adminid,
+      adminId: decoded.adminId, // 👈 ต้องตรงกับ payload ของ JWT
       username: decoded.username,
       name: decoded.name,
     };
-
     next();
   } catch (err: any) {
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({ error: "Token หมดอายุ" });
-    }
-    return res.status(401).json({ error: "Token ไม่ถูกต้อง" });
+    return res
+      .status(401)
+      .json({ error: "Invalid token", details: err.message });
   }
 }

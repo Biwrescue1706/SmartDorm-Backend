@@ -4,8 +4,7 @@ declare global {
   namespace Express {
     interface Request {
       admin?: {
-        id: string;
-        adminID: string;
+        adminId: string;  // ✅ ต้องตรงกับ schema
         username: string;
         name: string;
       };

@@ -1,156 +1,102 @@
+// src/routes/bill.ts
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
-import { notifyUser } from "../utils/lineNotify";
 
 const router = Router();
 
 /**
- * ➕ CREATE - ออกบิล (Admin)
+ * 📝 สร้าง Bill ใหม่ (Admin เท่านั้น)
  */
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { roomId, userId, rent, service, wBefore, wAfter, eBefore, eAfter, fine } = req.body;
+    const { roomId, customerId, month, rent, service,
+      wBefore, wAfter, wUnits, wPrice,
+      eBefore, eAfter, eUnits, ePrice,
+      fine, total } = req.body;
 
-    const room = await prisma.room.findUnique({ where: { id: roomId } });
-    if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
-    if (room.status === 0) return res.status(400).json({ error: "ห้องยังไม่มีผู้เช่า ไม่สามารถออกบิลได้" });
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.status(404).json({ error: "ไม่พบผู้ใช้" });
-
-    const wUnits = wAfter - wBefore;
-    const eUnits = eAfter - eBefore;
-    const wPrice = wUnits * 10; // ราคา/หน่วยน้ำ
-    const ePrice = eUnits * 5;  // ราคา/หน่วยไฟ
-    const total = rent + service + wPrice + ePrice + fine;
-
-    // ✅ เลขบิล
-    const billNumber = `BILL-${Date.now()}`;
+    // ✅ validate input
+    if (!roomId || !customerId || !month) {
+      return res.status(400).json({ error: "กรอกข้อมูลไม่ครบ" });
+    }
 
     const bill = await prisma.bill.create({
       data: {
-        number: billNumber,
-        roomId,
-        roomNumber: room.number,
-        userId,
-        month: new Date(),
+        number: `BILL-${Date.now()}`, // gen running number
+        month: new Date(month),
         rent,
         service,
-        wBefore,
-        wAfter,
-        wUnits,
-        wPrice,
-        eBefore,
-        eAfter,
-        eUnits,
-        ePrice,
+        wBefore, wAfter, wUnits, wPrice,
+        eBefore, eAfter, eUnits, ePrice,
         fine,
         total,
-        slipUrl: null,
-        status: 0, // pending
-        createdBy: req.admin!.id,
-        createdName: req.admin!.name,
+        status: 0, // 0 = ยังไม่ชำระ
+        slipUrl: "",
+        roomId,
+        customerId,
+        createdBy: req.admin!.adminId,
       },
-      include: { user: true, room: true },
+      include: { room: true, customer: true },
     });
 
-    // 🔔 Notify Admin
-    await notifyUser(
-      "Ud13f39623a835511f5972b35cbc5cdbd",
-      `📢 ออกบิลใหม่ ห้อง ${room.number} เลขที่ ${bill.number} ยอดรวม ${bill.total} บาท ให้ผู้ใช้ ${user.name}`
-    );
-
-    // 🔔 Notify User
-    await notifyUser(
-      user.userId,
-      `💰 คุณมีบิลใหม่ ห้อง ${room.number} เลขที่ ${bill.number} ยอดรวม ${bill.total} บาท`
-    );
-
-    res.json({ message: "✅ ออกบิลสำเร็จ", bill });
+    res.json({ message: "✅ สร้าง Bill สำเร็จ", bill });
   } catch (err) {
     console.error("❌ Error creating bill:", err);
-    res.status(500).json({ error: "ไม่สามารถออกบิลได้" });
+    res.status(500).json({ error: "ไม่สามารถสร้างบิลได้" });
   }
 });
 
 /**
- * 📖 READ - ดึงบิลทั้งหมด
+ * 📌 ดึงบิลทั้งหมด
  */
-router.get("/", authMiddleware, async (_req: Request, res: Response) => {
+router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
   try {
     const bills = await prisma.bill.findMany({
-      include: { room: true, user: true, payment: true },
       orderBy: { createdAt: "desc" },
+      include: { room: true, customer: true, payment: true },
     });
     res.json(bills);
-  } catch {
-    res.status(500).json({ error: "ไม่สามารถดึงข้อมูลบิลได้" });
+  } catch (err) {
+    console.error("❌ Error fetching bills:", err);
+    res.status(500).json({ error: "ไม่สามารถดึงบิลได้" });
   }
 });
 
 /**
- * 📖 READ - ดึงบิลตาม id
+ * 📌 ดึงบิลรายตัว
  */
-router.get("/:id", authMiddleware, async (req: Request, res: Response) => {
+router.get("/:billId", authMiddleware, async (req: Request, res: Response) => {
   try {
+    const { billId } = req.params;
     const bill = await prisma.bill.findUnique({
-      where: { id: req.params.id },
-      include: { room: true, user: true, payment: true },
+      where: { billId },
+      include: { room: true, customer: true, payment: true },
     });
     if (!bill) return res.status(404).json({ error: "ไม่พบบิล" });
     res.json(bill);
-  } catch {
-    res.status(500).json({ error: "ไม่สามารถดึงข้อมูลบิลได้" });
+  } catch (err) {
+    console.error("❌ Error fetching bill:", err);
+    res.status(500).json({ error: "ไม่สามารถดึงบิลได้" });
   }
 });
 
 /**
- * ✏️ UPDATE - อัปเดตบิล
+ * ✏️ อัปเดตบิล
  */
-router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
+router.put("/:billId", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { rent, service, fine, status, slipUrl } = req.body;
+    const { billId } = req.params;
+    const data = req.body;
 
-    const bill = await prisma.bill.findUnique({ where: { id: req.params.id } });
-    if (!bill) return res.status(404).json({ error: "ไม่พบบิล" });
-
-    // ✅ อัปเดตข้อมูล
     const updated = await prisma.bill.update({
-      where: { id: req.params.id },
+      where: { billId },
       data: {
-        ...(rent !== undefined && { rent: Number(rent) }),
-        ...(service !== undefined && { service: Number(service) }),
-        ...(fine !== undefined && { fine: Number(fine) }),
-        ...(status !== undefined && { status: Number(status) }),
-        ...(slipUrl !== undefined && { slipUrl }),
-        updatedBy: req.admin!.id,
-        updatedName: req.admin!.name,
+        ...data,
+        updatedBy: req.admin!.adminId,
       },
     });
 
-    // ✅ คำนวณ total ใหม่
-    const finalBill = await prisma.bill.update({
-      where: { id: req.params.id },
-      data: {
-        total:
-          (updated.rent ?? bill.rent) +
-          (updated.service ?? bill.service) +
-          bill.wPrice +
-          bill.ePrice +
-          (updated.fine ?? bill.fine),
-      },
-    });
-
-    // 🔔 ถ้าอัปโหลด slip แจ้ง Admin
-    if (slipUrl) {
-      await notifyUser(
-        "Ud13f39623a835511f5972b35cbc5cdbd",
-        `📥 ผู้ใช้ ${updated.updatedName || "-"} อัปโหลดสลิปบิล ${updated.number}`
-      );
-    }
-
-    res.json({ message: "✅ อัปเดตบิลสำเร็จ", bill: finalBill });
+    res.json({ message: "✅ อัปเดตบิลสำเร็จ", updated });
   } catch (err) {
     console.error("❌ Error updating bill:", err);
     res.status(500).json({ error: "ไม่สามารถอัปเดตบิลได้" });
@@ -158,13 +104,15 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
 });
 
 /**
- * ❌ DELETE - ลบบิล
+ * ❌ ลบบิล
  */
-router.delete("/:id", authMiddleware, async (req: Request, res: Response) => {
+router.delete("/:billId", authMiddleware, async (req: Request, res: Response) => {
   try {
-    await prisma.bill.delete({ where: { id: req.params.id } });
-    res.json({ message: "✅ ลบบิลสำเร็จ" });
-  } catch {
+    const { billId } = req.params;
+    await prisma.bill.delete({ where: { billId } });
+    res.json({ message: "🗑️ ลบบิลสำเร็จ" });
+  } catch (err) {
+    console.error("❌ Error deleting bill:", err);
     res.status(500).json({ error: "ไม่สามารถลบบิลได้" });
   }
 });

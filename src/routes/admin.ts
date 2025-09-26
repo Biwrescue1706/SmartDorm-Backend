@@ -12,11 +12,6 @@ if (!JWT_SECRET) {
   throw new Error("❌ JWT_SECRET must be defined in .env file");
 }
 
-function generateAdminID() {
-  const segment = () => Math.floor(1000 + Math.random() * 9000).toString();
-  return `${segment()}-${segment()}-${segment()}-${segment()}`;
-}
-
 // ---------------- REGISTER ----------------
 router.post("/register", async (req: Request, res: Response) => {
   try {
@@ -31,17 +26,14 @@ router.post("/register", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Username นี้ถูกใช้ไปแล้ว" });
     }
 
-    // ✅ สร้าง adminID แบบสุ่ม xxxx-xxxx-xxxx-xxxx
-    const adminID = generateAdminID();
-
     const hashed = await bcrypt.hash(password, 10);
     const admin = await prisma.admin.create({
-      data: { adminID, username, name, password: hashed },
+      data: { username, name, password: hashed },
     });
 
     res.json({
       message: "สร้าง Admin สำเร็จ",
-      adminID: admin.adminID,
+      adminID: admin.adminId,
       username: admin.username,
       name: admin.name,
       createdAt: admin.createdAt,
@@ -53,42 +45,39 @@ router.post("/register", async (req: Request, res: Response) => {
 
 // ---------------- LOGIN ----------------
 router.post("/login", async (req: Request, res: Response) => {
-  const { username, password } = req.body;
-
   try {
+    const { username, password } = req.body;
+
     const admin = await prisma.admin.findUnique({ where: { username } });
-    if (!admin) return res.status(400).json({ error: "ไม่พบผู้ใช้" });
+    if (!admin) {
+      return res.status(400).json({ error: "ไม่พบบัญชีผู้ใช้" });
+    }
 
-    const match = await bcrypt.compare(password, admin.password);
-    if (!match) return res.status(400).json({ error: "รหัสผ่านไม่ถูกต้อง" });
+    const valid = await bcrypt.compare(password, admin.password);
+    if (!valid) {
+      return res.status(400).json({ error: "รหัสผ่านไม่ถูกต้อง" });
+    }
 
+    // ✅ ตรงนี้ต้องใส่ adminId เข้า payload ด้วย
     const token = jwt.sign(
       {
-        id: admin.id,
-        adminid: admin.adminID,
+        adminId: admin.adminId, // 👈 สำคัญที่สุด
         username: admin.username,
         name: admin.name,
       },
       JWT_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "1d" }
     );
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // prod = true, dev = false
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 10 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
     });
 
-    res.json({
-      message: "เข้าสู่ระบบสำเร็จ",
-      adminID: admin.adminID,
-      username: admin.username,
-      name: admin.name,
-      token,
-    });
-  } catch {
-    res.status(500).json({ error: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" });
+    res.json({ message: "✅ เข้าสู่ระบบสำเร็จ", token });
+  } catch (err) {
+    console.error("❌ Login error:", err);
+    res.status(500).json({ error: "ไม่สามารถเข้าสู่ระบบได้" });
   }
 });
 
@@ -118,11 +107,11 @@ router.get("/verify", (req: Request, res: Response) => {
 // ---------------- ADMIN CRUD ----------------
 
 // ✅ READ - แสดง Admin ทั้งหมด
-router.get("/", async (req: Request, res: Response) => {
+router.get("/getall", async (req: Request, res: Response) => {
   try {
     const admins = await prisma.admin.findMany({
       select: {
-        adminID: true,
+        adminId: true,
         username: true,
         name: true,
         createdAt: true,
@@ -136,13 +125,13 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 // ✅ READ - แสดง Admin รายบุคคล
-router.get("/:adminID", async (req: Request, res: Response) => {
+router.get("/:adminId", async (req: Request, res: Response) => {
   try {
-    const { adminID } = req.params;
+    const { adminId } = req.params;
     const admin = await prisma.admin.findUnique({
-      where: { adminID },
+      where: { adminId },
       select: {
-        adminID: true,
+        adminId: true,
         username: true,
         name: true,
         createdAt: true,
@@ -159,9 +148,9 @@ router.get("/:adminID", async (req: Request, res: Response) => {
 });
 
 // ✅ UPDATE - อัปเดต Admin
-router.put("/:adminID", authMiddleware, async (req: Request, res: Response) => {
+router.put("/:adminId", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { adminID } = req.params;
+    const { adminId } = req.params;
     const { username, name, password } = req.body;
 
     const setPayload: any = {};
@@ -170,7 +159,7 @@ router.put("/:adminID", authMiddleware, async (req: Request, res: Response) => {
     if (password) setPayload.password = await bcrypt.hash(password, 10);
 
     const updated = await prisma.admin.update({
-      where: { adminID },
+      where: { adminId },
       data: setPayload,
     });
 
@@ -182,14 +171,14 @@ router.put("/:adminID", authMiddleware, async (req: Request, res: Response) => {
 
 // ✅ DELETE - ลบ Admin
 router.delete(
-  "/:adminID",
+  "/:adminId",
   authMiddleware,
   async (req: Request, res: Response) => {
     try {
-      const { adminID } = req.params;
+      const { adminId } = req.params;
       await prisma.admin.delete({
         where: {
-          adminID,
+          adminId,
         },
       });
       res.json({ message: "ลบ Admin สำเร็จ" });
@@ -198,7 +187,5 @@ router.delete(
     }
   }
 );
-
-
 
 export default router;
