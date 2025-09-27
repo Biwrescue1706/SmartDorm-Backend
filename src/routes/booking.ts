@@ -19,7 +19,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 //📝 User ขอจองห้อง (แนบ slip ได้ทั้งแบบ url และไฟล์จริง)
 router.post("/create", upload.single("slip"), async (req: Request, res: Response) => {
   try {
-    const { userId, userName, roomId, checkin, cname, csurname, cphone, cmumId, slipUrl } = req.body;
+    const { userId , ctitle , userName, roomId, checkin, cname, csurname, cphone, cmumId, slipUrl } = req.body;
     const slipFile = req.file;
 
     if (!userId || !roomId || !checkin) {
@@ -33,6 +33,7 @@ router.post("/create", upload.single("slip"), async (req: Request, res: Response
         data: {
           userId,
           userName,
+          ctitle,
           cname,
           csurname,
           cphone,
@@ -273,7 +274,7 @@ router.put("/:bookingId/rejectCheckout", authMiddleware, async (req: Request, re
 router.put("/:bookingId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { bookingId } = req.params;
-    const { cname, csurname, cmumId, cphone, status, checkin } = req.body;
+    const { ctitle, cname, csurname, cmumId, cphone, status, checkin } = req.body;
 
     // ✅ หา booking ก่อน (เพื่อได้ customerId มาอัปเดต Customer ด้วย)
     const booking = await prisma.booking.findUnique({
@@ -293,17 +294,22 @@ router.put("/:bookingId", authMiddleware, async (req: Request, res: Response) =>
     });
 
     // ✅ อัปเดต Customer (ถ้ามีการส่งค่าใหม่มา)
-    if (cname || csurname || cmumId || cphone) {
+    if (ctitle || cname || csurname || cmumId || cphone) {
       await prisma.customer.update({
         where: { customerId: booking.customerId },
         data: {
+          ...(ctitle && { ctitle }),
           ...(cname && { cname }),
           ...(csurname && { csurname }),
           ...(cmumId && { cmumId }),
           ...(cphone && { cphone }),
           // อัปเดต fullname อัตโนมัติ ถ้ามี cname/csurname
           ...(cname || csurname
-            ? { fullName: `${cname || booking.customer.cname} ${csurname || booking.customer.csurname}` }
+            ? {
+                fullName: `${cname || booking.customer.cname} ${
+                  csurname || booking.customer.csurname
+                }`,
+              }
             : {}),
         },
       });

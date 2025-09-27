@@ -46,11 +46,12 @@ model Customer {
   customerId String   @id @default(auto()) @map("_id") @db.ObjectId
   userId     String   @unique // LINE LIFF userId
   userName   String // LINE LIFF displayName
-  cname      String
-  csurname   String
-  fullName   String
-  cphone     String
-  cmumId     String
+  ctitle     String // คำนำหน้าชื่อ
+  cname      String //ชื่อ
+  csurname   String //นามสกุล
+  fullName   String // ชื่อเต็ม
+  cphone     String //เบอรโทร
+  cmumId     String //บัตรประชาชน
   createdAt  DateTime @default(now())
 
   bookings Booking[]
@@ -61,7 +62,6 @@ model Payment {
   paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
   slipUrl   String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   booking Booking?
   bill    Bill?
@@ -72,8 +72,8 @@ model Booking {
   checkin      DateTime
   checkout     DateTime?
   slipUrl      String
-  status       Int @default(0) // 0=รออนุมัติ, 1=อนุมัติ/เข้าพัก, 2=ไม่อนุมัติ
-  returnStatus Int @default(0) // 0=รอคืน, 1=คืนแล้ว, 2=ปฏิเสธการคืน
+  status       Int       @default(0) // 0=รออนุมัติ, 1=อนุมัติ/เข้าพัก, 2=ไม่อนุมัติ
+  returnStatus Int       @default(0) // 0=รอคืน, 1=คืนแล้ว, 2=ปฏิเสธการคืน
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -107,7 +107,7 @@ model Bill {
   fine      Int
   total     Int
   slipUrl   String
-  status    Int @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
+  status    Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
