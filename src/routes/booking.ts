@@ -3,17 +3,28 @@ import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { notifyUser } from "../utils/lineNotify";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 const router = Router();
 
-/**
- * 📝 User ขอจองห้อง (แนบ slip หรือไม่แนบก็ได้ → รอ Admin อนุมัติ)
- */
-router.post("/create", async (req: Request, res: Response) => {
-  try {
-    const { userId , userName , roomId, checkin, slipUrl, cname, csurname, cphone, cmumId } = req.body;
+// 📂 โฟลเดอร์เก็บไฟล์สลิป
+const UPLOAD_DIR = path.join(__dirname, "../../uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-    if (!userId || !userName|| !roomId || !checkin) {
+// ✅ ใช้ memoryStorage (เก็บใน RAM ก่อน)
+const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * 📝 User ขอจองห้อง (แนบ slip ได้ทั้งแบบ url และไฟล์จริง)
+ */
+router.post("/create", upload.single("slip"), async (req: Request, res: Response) => {
+  try {
+    const { userId, userName, roomId, checkin, cname, csurname, cphone, cmumId, slipUrl } = req.body;
+    const slipFile = req.file;
+
+    if (!userId || !roomId || !checkin) {
       return res.status(400).json({ error: "ข้อมูลไม่ครบ" });
     }
 
@@ -38,7 +49,16 @@ router.post("/create", async (req: Request, res: Response) => {
     if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
     if (room.status !== 0) return res.status(400).json({ error: "ห้องไม่ว่าง" });
 
-    // ✅ ตรวจสอบว่ามี booking ที่ยัง active อยู่หรือไม่
+    // ✅ จัดการ slip (ถ้ามีการอัปโหลดไฟล์)
+    let finalSlipUrl = slipUrl || "";
+    if (slipFile) {
+      const filename = `${Date.now()}_${slipFile.originalname}`;
+      const filepath = path.join(UPLOAD_DIR, filename);
+      await fs.promises.writeFile(filepath, slipFile.buffer);
+      finalSlipUrl = `/uploads/${filename}`;
+    }
+
+    // ✅ ตรวจสอบว่ามี booking ค้างอยู่ไหม
     const existing = await prisma.booking.findFirst({
       where: { customerId: customer.customerId, status: { in: [0, 1] } },
     });
@@ -52,7 +72,7 @@ router.post("/create", async (req: Request, res: Response) => {
         customerId: customer.customerId,
         roomId,
         checkin: new Date(checkin),
-        slipUrl: slipUrl || "",
+        slipUrl: finalSlipUrl,
         status: 0,
       },
       include: { customer: true, room: true },
@@ -60,7 +80,7 @@ router.post("/create", async (req: Request, res: Response) => {
 
     // แจ้ง Admin
     await notifyUser(
-      "Ud13f39623a835511f5972b35cbc5cdbd",
+      "ADMIN_LINE_ID",
       `📢 ผู้เช่า ${customer.cname} (${customer.cphone}) ส่งคำขอจองห้อง ${room.number}`
     );
 
@@ -90,7 +110,7 @@ router.put("/:bookingId/checkout", authMiddleware, async (req: Request, res: Res
       where: { bookingId },
       data: {
         checkout: new Date(checkout),
-        status: 3, // 👈 3 = คืนห้อง
+        status: 3, // คืนห้อง
       },
     });
 
@@ -135,7 +155,6 @@ router.put("/:bookingId/approve", authMiddleware, async (req: Request, res: Resp
       }),
     ]);
 
-    // แจ้ง User
     await notifyUser(
       booking.customer.userId,
       `✅ การจองห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว`
@@ -163,10 +182,9 @@ router.put("/:bookingId/reject", authMiddleware, async (req: Request, res: Respo
 
     const updatedBooking = await prisma.booking.update({
       where: { bookingId },
-      data: { status: 2 }, // 2 = ปฏิเสธ
+      data: { status: 2 }, // ปฏิเสธ
     });
 
-    // แจ้ง User
     await notifyUser(
       booking.customer.userId,
       `❌ การจองห้อง ${booking.room.number} ไม่ผ่านการอนุมัติ`
