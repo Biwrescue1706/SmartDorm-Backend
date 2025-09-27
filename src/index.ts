@@ -52,6 +52,7 @@ import billsRouter from "./routes/bill";
 import bookingRouter from "./routes/booking";
 import paymentRouter from "./routes/payment";
 import userRouter from "./routes/user";
+import qrRouter from "./routes/qr";
 
 // ✅ Register routes
 app.use("/admin", adminRouter);
@@ -60,6 +61,7 @@ app.use("/bills", billsRouter);
 app.use("/booking", bookingRouter);
 app.use("/payment", paymentRouter);
 app.use("/user", userRouter);
+app.use("/qr", qrRouter);
 
 app.get("/", (_req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
