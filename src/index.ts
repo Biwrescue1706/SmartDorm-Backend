@@ -53,6 +53,14 @@ import bookingRouter from "./routes/booking";
 import paymentRouter from "./routes/payment";
 import userRouter from "./routes/user";
 
+// ✅ Register routes
+app.use("/admin", adminRouter);
+app.use("/room", roomRouter);
+app.use("/bills", billsRouter);
+app.use("/booking", bookingRouter);
+app.use("/payment", paymentRouter);
+app.use("/user", userRouter);
+
 app.get("/", (_req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
 });
@@ -76,13 +84,9 @@ app.get("/test-db", async (_req, res) => {
   }
 });
 
-// ✅ Register routes
-app.use("/admin", adminRouter);
-app.use("/room", roomRouter);
-app.use("/bills", billsRouter);
-app.use("/booking", bookingRouter);
-app.use("/payment", paymentRouter);
-app.use("/user", userRouter);
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
 
 // ✅ Global error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
