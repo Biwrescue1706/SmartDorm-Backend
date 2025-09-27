@@ -273,18 +273,41 @@ router.put("/:bookingId/rejectCheckout", authMiddleware, async (req: Request, re
 router.put("/:bookingId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { bookingId } = req.params;
-    const { checkin, checkout, status, returnStatus, roomId } = req.body;
+    const { cname, csurname, cmumId, cphone, status, checkin } = req.body;
 
+    // ✅ หา booking ก่อน (เพื่อได้ customerId มาอัปเดต Customer ด้วย)
+    const booking = await prisma.booking.findUnique({
+      where: { bookingId },
+      include: { customer: true },
+    });
+    if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
+
+    // ✅ อัปเดต Booking
     const updatedBooking = await prisma.booking.update({
       where: { bookingId },
       data: {
-        ...(checkin && { checkin: new Date(checkin) }),
-        ...(checkout && { checkout: new Date(checkout) }),
         ...(status !== undefined && { status }),
-        ...(returnStatus !== undefined && { returnStatus }),
-        ...(roomId && { roomId }),
+        ...(checkin && { checkin: new Date(checkin) }),
       },
+      include: { customer: true, room: true },
     });
+
+    // ✅ อัปเดต Customer (ถ้ามีการส่งค่าใหม่มา)
+    if (cname || csurname || cmumId || cphone) {
+      await prisma.customer.update({
+        where: { customerId: booking.customerId },
+        data: {
+          ...(cname && { cname }),
+          ...(csurname && { csurname }),
+          ...(cmumId && { cmumId }),
+          ...(cphone && { cphone }),
+          // อัปเดต fullname อัตโนมัติ ถ้ามี cname/csurname
+          ...(cname || csurname
+            ? { fullName: `${cname || booking.customer.cname} ${csurname || booking.customer.csurname}` }
+            : {}),
+        },
+      });
+    }
 
     res.json({ message: "✏️ แก้ไขข้อมูลการจองสำเร็จ", booking: updatedBooking });
   } catch (err) {
