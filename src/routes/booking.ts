@@ -80,7 +80,7 @@ router.post("/create", upload.single("slip"), async (req: Request, res: Response
 
     // แจ้ง Admin
     await notifyUser(
-      "ADMIN_LINE_ID",
+      process.env.ADMIN_LINE_ID!,
       `📢 ผู้เช่า ${customer.cname} (${customer.cphone}) ส่งคำขอจองห้อง ${room.number}`
     );
 
