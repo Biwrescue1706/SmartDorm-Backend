@@ -53,6 +53,7 @@ import bookingRouter from "./routes/booking";
 import paymentRouter from "./routes/payment";
 import userRouter from "./routes/user";
 import qrRouter from "./routes/qr";
+import uploadRouter from "./routes/upload";
 
 // ✅ Register routes
 app.use("/admin", adminRouter);
@@ -62,6 +63,7 @@ app.use("/booking", bookingRouter);
 app.use("/payment", paymentRouter);
 app.use("/user", userRouter);
 app.use("/qr", qrRouter);
+app.use("/upload", uploadRouter);
 
 app.get("/", (_req, res) => {
   res.send("🚀 ระบบ Backend ของ SmartDorm ");
@@ -97,5 +99,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  }
 });
