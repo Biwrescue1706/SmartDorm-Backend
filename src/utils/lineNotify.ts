@@ -7,7 +7,7 @@ export async function notifyUser(to: string, message: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.LINE_CHANNEL_TOKEN}`, // ต้องเซ็ตใน .env
+        Authorization: `Bearer ${process.env.LINE_CHANNEL_TOKEN}`,
       },
       body: JSON.stringify({
         to,

@@ -11,9 +11,9 @@ const router = Router();
  */
 router.post("/create", async (req: Request, res: Response) => {
   try {
-    const { userId, roomId, checkin, checkout, slipUrl, cname, csurname, cphone, mumId } = req.body;
+    const { userId , userName , roomId, checkin, slipUrl, cname, csurname, cphone, cmumId } = req.body;
 
-    if (!userId || !roomId || !checkin || !checkout) {
+    if (!userId || !userName|| !roomId || !checkin) {
       return res.status(400).json({ error: "ข้อมูลไม่ครบ" });
     }
 
@@ -23,10 +23,11 @@ router.post("/create", async (req: Request, res: Response) => {
       customer = await prisma.customer.create({
         data: {
           userId,
+          userName,
           cname,
           csurname,
           cphone,
-          cmumId: mumId,
+          cmumId,
           fullName: `${cname} ${csurname}`,
         },
       });
@@ -37,7 +38,7 @@ router.post("/create", async (req: Request, res: Response) => {
     if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
     if (room.status !== 0) return res.status(400).json({ error: "ห้องไม่ว่าง" });
 
-    // ✅ ตรวจสอบว่ามี booking pending หรือ approved อยู่แล้วหรือไม่
+    // ✅ ตรวจสอบว่ามี booking ที่ยัง active อยู่หรือไม่
     const existing = await prisma.booking.findFirst({
       where: { customerId: customer.customerId, status: { in: [0, 1] } },
     });
@@ -51,7 +52,6 @@ router.post("/create", async (req: Request, res: Response) => {
         customerId: customer.customerId,
         roomId,
         checkin: new Date(checkin),
-        checkout: new Date(checkout),
         slipUrl: slipUrl || "",
         status: 0,
       },
@@ -68,6 +68,42 @@ router.post("/create", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("❌ Error create booking:", err);
     res.status(500).json({ error: "ไม่สามารถจองห้องได้" });
+  }
+});
+
+/**
+ * 🔄 ผู้เช่าคืนห้อง
+ */
+router.put("/:bookingId/checkout", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const { checkout } = req.body;
+
+    if (!checkout) {
+      return res.status(400).json({ error: "ต้องระบุวันที่คืนห้อง" });
+    }
+
+    const booking = await prisma.booking.findUnique({ where: { bookingId } });
+    if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
+
+    const updated = await prisma.booking.update({
+      where: { bookingId },
+      data: {
+        checkout: new Date(checkout),
+        status: 3, // 👈 3 = คืนห้อง
+      },
+    });
+
+    // อัพเดทห้องกลับเป็นว่าง
+    await prisma.room.update({
+      where: { roomId: booking.roomId },
+      data: { status: 0 },
+    });
+
+    res.json({ message: "✅ คืนห้องสำเร็จ", booking: updated });
+  } catch (err) {
+    console.error("❌ Error checkout booking:", err);
+    res.status(500).json({ error: "ไม่สามารถคืนห้องได้" });
   }
 });
 
@@ -127,7 +163,7 @@ router.put("/:bookingId/reject", authMiddleware, async (req: Request, res: Respo
 
     const updatedBooking = await prisma.booking.update({
       where: { bookingId },
-      data: { status: 2 }, // rejected
+      data: { status: 2 }, // 2 = ปฏิเสธ
     });
 
     // แจ้ง User

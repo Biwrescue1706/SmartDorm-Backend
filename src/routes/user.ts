@@ -9,9 +9,9 @@ const router = Router();
  */
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { userId, mumId, cname, csurname, cphone } = req.body;
+    const { userId, userName, cmumId, cname, csurname, cphone } = req.body;
 
-    if (!userId || !cname || !cphone) {
+    if (!userId || !userName || !cname || !cphone) {
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
     }
 
@@ -21,7 +21,8 @@ router.post("/register", async (req: Request, res: Response) => {
       customer = await prisma.customer.update({
         where: { customerId: customer.customerId },
         data: {
-          cmumId: mumId,
+          userName,
+          cmumId,
           cname,
           csurname,
           cphone,
@@ -32,7 +33,8 @@ router.post("/register", async (req: Request, res: Response) => {
       customer = await prisma.customer.create({
         data: {
           userId,
-          cmumId: mumId,
+          userName,
+          cmumId,
           cname,
           csurname,
           cphone,
@@ -97,8 +99,8 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
           billNumber: b.number,
           roomNumber: b.room.number,
           amount: b.total,
-          slipUrl: b.payment!.slipUrl,
-          createdAt: b.payment!.createdAt,
+          slipUrl: b.payment?.slipUrl,
+          createdAt: b.payment?.createdAt,
         })),
       ...customer.bookings
         .filter((bk) => bk.payment)
@@ -106,11 +108,11 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
           type: "booking" as const,
           bookingId: bk.bookingId,
           roomNumber: bk.room.number,
-          amount: bk.room.rent,
-          slipUrl: bk.payment!.slipUrl,
-          createdAt: bk.payment!.createdAt,
+          amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee, // ✅ คำนวณรวม
+          slipUrl: bk.payment?.slipUrl,
+          createdAt: bk.payment?.createdAt,
         })),
-    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    ].sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
 
     res.json({ userId: customer.userId, payments });
   } catch (err) {

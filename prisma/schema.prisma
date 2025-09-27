@@ -46,6 +46,7 @@ model Room {
 model Customer {
   customerId String   @id @default(auto()) @map("_id") @db.ObjectId
   userId     String   @unique // LINE LIFF userId
+  userName   String // LINE LIFF displayName
   cname      String
   csurname   String
   fullName   String
@@ -68,13 +69,13 @@ model Payment {
 }
 
 model Booking {
-  bookingId String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId String    @id @default(auto()) @map("_id") @db.ObjectId
   checkin   DateTime
-  checkout  DateTime
+  checkout  DateTime?
   slipUrl   String
-  status    Int // 0 รออนุมัติ, 1 อนุมัติ, 2 ไม่อนุมัติ
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status    Int // 0=รออนุมัติ, 1=อนุมัติ/เข้าพัก, 2=ไม่อนุมัติ, 3=คืนห้อง
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   // FK -> Customer
   customerId String   @db.ObjectId
