@@ -9,9 +9,9 @@ const router = Router();
  */
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { userId , ctitle , userName, cmumId, cname, csurname, cphone } = req.body;
+    const { userId, ctitle, userName, cmumId, cname, csurname, cphone } = req.body;
 
-    if (!userId || !ctitle|| !userName || !cname || !cphone) {
+    if (!userId || !ctitle || !userName || !cname || !cphone) {
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
     }
 
@@ -23,7 +23,7 @@ router.post("/register", async (req: Request, res: Response) => {
         data: {
           userName,
           cmumId,
-          ctitle ,
+          ctitle,
           cname,
           csurname,
           cphone,
@@ -35,7 +35,7 @@ router.post("/register", async (req: Request, res: Response) => {
         data: {
           userId,
           userName,
-          ctitle ,
+          ctitle,
           cmumId,
           cname,
           csurname,
@@ -62,8 +62,8 @@ router.get("/:userId", async (req: Request, res: Response) => {
     const customer = await prisma.customer.findUnique({
       where: { userId },
       include: {
-        bookings: { include: { room: true, payment: true } },
-        bills: { include: { room: true, payment: true } },
+        bookings: { include: { room: true, payments: true } }, // ✅ แก้เป็น payments
+        bills: { include: { room: true, payment: true } },     // ✅ Bill ใช้ payment เดียว
       },
     });
 
@@ -86,8 +86,8 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
     const customer = await prisma.customer.findUnique({
       where: { userId },
       include: {
-        bills: { include: { payment: true, room: true } },
-        bookings: { include: { payment: true, room: true } },
+        bills: { include: { payment: true, room: true } },      // ✅ Bill มี payment เดียว
+        bookings: { include: { payments: true, room: true } }, // ✅ Booking มี payments[]
       },
     });
 
@@ -104,16 +104,16 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
           slipUrl: b.payment?.slipUrl,
           createdAt: b.payment?.createdAt,
         })),
-      ...customer.bookings
-        .filter((bk) => bk.payment)
-        .map((bk) => ({
+      ...customer.bookings.flatMap((bk) =>
+        bk.payments.map((p) => ({
           type: "booking" as const,
           bookingId: bk.bookingId,
           roomNumber: bk.room.number,
-          amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee, // ✅ คำนวณรวม
-          slipUrl: bk.payment?.slipUrl,
-          createdAt: bk.payment?.createdAt,
-        })),
+          amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee, // ✅ รวมค่าทั้งหมด
+          slipUrl: p.slipUrl,
+          createdAt: p.createdAt,
+        }))
+      ),
     ].sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
 
     res.json({ userId: customer.userId, payments });
