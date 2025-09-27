@@ -28,14 +28,13 @@ model Room {
   rent       Int
   deposit    Int
   bookingFee Int
-  status     Int // 0 ว่าง 1 เต็ม
+  status     Int // 0 = ว่าง, 1 = ไม่ว่าง
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   createdBy String  @db.ObjectId
   updatedBy String? @db.ObjectId
 
-  // ✅ ทำให้ optional จะได้ไม่ต้องส่ง adminCreated เวลา create
   adminCreated Admin? @relation("RoomCreatedBy", fields: [createdBy], references: [adminId])
   adminUpdated Admin? @relation("RoomUpdatedBy", fields: [updatedBy], references: [adminId])
 
@@ -69,13 +68,14 @@ model Payment {
 }
 
 model Booking {
-  bookingId String    @id @default(auto()) @map("_id") @db.ObjectId
-  checkin   DateTime
-  checkout  DateTime?
-  slipUrl   String
-  status    Int // 0=รออนุมัติ, 1=อนุมัติ/เข้าพัก, 2=ไม่อนุมัติ, 3=คืนห้อง
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
+  checkin      DateTime
+  checkout     DateTime?
+  slipUrl      String
+  status       Int @default(0) // 0=รออนุมัติ, 1=อนุมัติ/เข้าพัก, 2=ไม่อนุมัติ
+  returnStatus Int @default(0) // 0=รอคืน, 1=คืนแล้ว, 2=ปฏิเสธการคืน
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // FK -> Customer
   customerId String   @db.ObjectId
@@ -107,7 +107,7 @@ model Bill {
   fine      Int
   total     Int
   slipUrl   String
-  status    Int // 0 ยังไม่ชำระ 1 ชำระแล้ว
+  status    Int @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
