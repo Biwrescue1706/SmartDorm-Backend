@@ -9,9 +9,9 @@ const router = Router();
  */
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { userId, userName, cmumId, cname, csurname, cphone } = req.body;
+    const { userId , ctitle , userName, cmumId, cname, csurname, cphone } = req.body;
 
-    if (!userId || !userName || !cname || !cphone) {
+    if (!userId || !ctitle|| !userName || !cname || !cphone) {
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
     }
 
@@ -23,10 +23,11 @@ router.post("/register", async (req: Request, res: Response) => {
         data: {
           userName,
           cmumId,
+          ctitle ,
           cname,
           csurname,
           cphone,
-          fullName: `${cname} ${csurname}`,
+          fullName: `${ctitle}${cname} ${csurname}`,
         },
       });
     } else {
@@ -34,11 +35,12 @@ router.post("/register", async (req: Request, res: Response) => {
         data: {
           userId,
           userName,
+          ctitle ,
           cmumId,
           cname,
           csurname,
           cphone,
-          fullName: `${cname} ${csurname}`,
+          fullName: `${ctitle}${cname} ${csurname}`,
         },
       });
     }
