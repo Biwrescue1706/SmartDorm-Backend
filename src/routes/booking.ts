@@ -114,7 +114,7 @@ router.post("/create", upload.single("slip"), async (req: Request, res: Response
 /**
  * 📌 ดึงการจองทั้งหมด (Admin)
  */
-router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
+router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const bookings = await prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
