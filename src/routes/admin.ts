@@ -63,7 +63,7 @@ router.post("/login", async (req: Request, res: Response) => {
     const token = jwt.sign(
       { adminId: admin.adminId, username: admin.username, name: admin.name },
       JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1h" }
     );
 
     // ✅ เซ็ต cookie (cross-site)
