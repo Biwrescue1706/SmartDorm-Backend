@@ -18,10 +18,16 @@ const upload = multer({ storage: multer.memoryStorage()});
 // 📝 User ขอจองห้อง (แนบ slip ได้ทั้งแบบ url และไฟล์จริง)
 router.post("/create", upload.single("slip"), async (req: Request, res: Response) => {
   try {
+    // 👉 log เพื่อ debug
+    console.log("📥 req.body:", req.body);
+    console.log("📎 req.file:", req.file?.originalname);
+
     const { userId, ctitle, userName, roomId, checkin, cname, csurname, cphone, cmumId, slipUrl } = req.body;
     const slipFile = req.file;
 
-    if (!userId || !roomId || !checkin) return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
+    if (!userId || !roomId || !checkin) {
+      return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ", debug: { userId, roomId, checkin } });
+    }
 
     // หา/สร้าง Customer
     let customer = await prisma.customer.findFirst({ where: { userId } });
