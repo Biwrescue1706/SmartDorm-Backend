@@ -116,14 +116,14 @@ model Booking {
 }
 
 model Payment {
-  paymentId String  @id @default(auto()) @map("_id") @db.ObjectId
-  billId    String  @unique @db.ObjectId
-  bookingId String? @unique @db.ObjectId
+  paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
+  billId    String?  @unique @db.ObjectId
+  bookingId String?  @unique @db.ObjectId
   slipUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   booking Booking? @relation(fields: [bookingId], references: [bookingId])
-  bill    Bill     @relation(fields: [billId], references: [billId])
+  bill    Bill?     @relation(fields: [billId], references: [billId])
 }
