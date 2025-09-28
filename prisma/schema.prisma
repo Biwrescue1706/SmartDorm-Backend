@@ -44,47 +44,19 @@ model Room {
 
 model Customer {
   customerId String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String   @unique // LINE LIFF userId
-  userName   String // LINE LIFF displayName
-  ctitle     String // คำนำหน้าชื่อ
-  cname      String //ชื่อ
-  csurname   String //นามสกุล
-  fullName   String // ชื่อเต็ม
-  cphone     String //เบอรโทร
-  cmumId     String //บัตรประชาชน
+  userId     String   @unique // LINE LIFF userId (1 User = 1 record)
+  userName   String
+  ctitle     String
+  cname      String
+  csurname   String
+  fullName   String
+  cphone     String
+  cmumId     String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   bookings Booking[]
   bills    Bill[]
-}
-
-model Booking {
-  bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
-  roomId       String    @db.ObjectId
-  customerId   String    @db.ObjectId
-  checkin      DateTime
-  checkout     DateTime?
-  status       Int
-  returnStatus Int?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  room     Room      @relation(fields: [roomId], references: [roomId])
-  customer Customer  @relation(fields: [customerId], references: [customerId])
-  payments Payment[] // 👈 Booking 1 มีได้หลาย Payment
-}
-
-model Payment {
-  paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
-  bookingId String   @db.ObjectId
-  amount    Float?
-  slipUrl   String? // 👈 เก็บสลิปที่นี่
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  booking Booking @relation(fields: [bookingId], references: [bookingId])
-  Bill    Bill?
 }
 
 model Bill {
@@ -104,7 +76,7 @@ model Bill {
   fine      Int
   total     Int
   slipUrl   String
-  status    Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
+  status    Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว, 2=รอตรวจสอบ
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -122,7 +94,35 @@ model Bill {
   adminCreated Admin?  @relation("BillCreatedBy", fields: [createdBy], references: [adminId])
   adminUpdated Admin?  @relation("BillUpdatedBy", fields: [updatedBy], references: [adminId])
 
-  // FK -> Payment
-  paymentId String?  @unique @db.ObjectId
-  payment   Payment? @relation(fields: [paymentId], references: [paymentId])
+  // 1 Bill = 1 Payment
+  payment Payment?
+}
+
+model Booking {
+  bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
+  roomId       String    @db.ObjectId
+  customerId   String    @db.ObjectId
+  checkin      DateTime
+  checkout     DateTime?
+  status       Int // 0=รออนุมัติ, 1=อนุมัติแล้ว, 2=ปฏิเสธ
+  paymentId    String?   @unique @db.ObjectId
+  returnStatus Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  room     Room     @relation(fields: [roomId], references: [roomId])
+  customer Customer @relation(fields: [customerId], references: [customerId])
+  payment  Payment? @relation("BookingPayment", fields: [paymentId], references: [paymentId]) // ✅ กำหนดด้านนี้
+}
+
+model Payment {
+  paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
+  billId    String   @unique @db.ObjectId
+  slipUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookingId String?  @unique @db.ObjectId
+  booking   Booking? @relation("BookingPayment") // ✅ ใช้ชื่อ relation ตรงกัน แต่ไม่ต้องใส่ fields/references
+  bill      Bill     @relation(fields: [billId], references: [billId])
 }
