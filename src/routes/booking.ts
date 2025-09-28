@@ -206,6 +206,82 @@ router.get("/getall", async (_req: Request, res: Response) => {
   }
 });
 
+//✏️ Admin แก้ไขข้อมูลการจอง
+router.put(
+  "/:bookingId",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const { bookingId } = req.params;
+      const { ctitle, cname, csurname, cmumId, cphone, status, checkin } =
+        req.body;
+
+      const booking = await prisma.booking.findUnique({
+        where: { bookingId },
+        include: { customer: true },
+      });
+      if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
+
+      const updatedBooking = await prisma.booking.update({
+        where: { bookingId },
+        data: {
+          ...(status !== undefined && { status }),
+          ...(checkin && { checkin: new Date(checkin) }),
+        },
+        include: { customer: true, room: true },
+      });
+
+      if (ctitle || cname || csurname || cmumId || cphone) {
+        await prisma.customer.update({
+          where: { customerId: booking.customerId },
+          data: {
+            ...(ctitle && { ctitle }),
+            ...(cname && { cname }),
+            ...(csurname && { csurname }),
+            ...(cmumId && { cmumId }),
+            ...(cphone && { cphone }),
+            ...(cname || csurname
+              ? {
+                  fullName: `${cname || booking.customer.cname} ${csurname || booking.customer.csurname}`,
+                }
+              : {}),
+          },
+        });
+      }
+
+      res.json({
+        message: "✏️ แก้ไขข้อมูลการจองสำเร็จ",
+        booking: updatedBooking,
+      });
+    } catch (err) {
+      console.error("❌ Error updating booking:", err);
+      res.status(500).json({ error: "ไม่สามารถแก้ไขข้อมูลการจองได้" });
+    }
+  }
+);
+
+//🗑️ Admin ลบข้อมูลการจอง
+router.delete(
+  "/:bookingId",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const { bookingId } = req.params;
+
+      const deleted = await prisma.booking.delete({
+        where: { bookingId },
+      });
+
+      res.json({ message: "🗑️ ลบข้อมูลการจองสำเร็จ", booking: deleted });
+    } catch (err) {
+      console.error("❌ Error deleting booking:", err);
+      res.status(500).json({ error: "ไม่สามารถลบข้อมูลการจองได้" });
+    }
+  }
+);
+
+//การคืน
+
 // ✅ Admin อนุมัติการคืน
 router.put(
   "/:bookingId/approveCheckout",
@@ -283,78 +359,71 @@ router.put(
   }
 );
 
-//✏️ Admin แก้ไขข้อมูลการจอง
-router.put(
-  "/:bookingId",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const { bookingId } = req.params;
-      const { ctitle, cname, csurname, cmumId, cphone, status, checkin } =
-        req.body;
-
-      const booking = await prisma.booking.findUnique({
-        where: { bookingId },
-        include: { customer: true },
-      });
-      if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
-
-      const updatedBooking = await prisma.booking.update({
-        where: { bookingId },
-        data: {
-          ...(status !== undefined && { status }),
-          ...(checkin && { checkin: new Date(checkin) }),
-        },
-        include: { customer: true, room: true },
-      });
-
-      if (ctitle || cname || csurname || cmumId || cphone) {
-        await prisma.customer.update({
-          where: { customerId: booking.customerId },
-          data: {
-            ...(ctitle && { ctitle }),
-            ...(cname && { cname }),
-            ...(csurname && { csurname }),
-            ...(cmumId && { cmumId }),
-            ...(cphone && { cphone }),
-            ...(cname || csurname
-              ? {
-                  fullName: `${cname || booking.customer.cname} ${csurname || booking.customer.csurname}`,
-                }
-              : {}),
-          },
-        });
-      }
-
-      res.json({
-        message: "✏️ แก้ไขข้อมูลการจองสำเร็จ",
-        booking: updatedBooking,
-      });
-    } catch (err) {
-      console.error("❌ Error updating booking:", err);
-      res.status(500).json({ error: "ไม่สามารถแก้ไขข้อมูลการจองได้" });
-    }
+//📌 ดึงการคืนทั้งหมด (Admin)
+router.get("/checkout/getall", authMiddleware, async (_req: Request, res: Response) => {
+  try {
+    const checkouts = await prisma.booking.findMany({
+      where: { checkout: { not: null } }, // ✅ เอาเฉพาะที่มีคืนห้องแล้ว
+      orderBy: { checkout: "desc" },
+      include: { room: true, customer: true },
+    });
+    res.json(checkouts);
+  } catch (err) {
+    console.error("❌ Error fetching checkouts:", err);
+    res.status(500).json({ error: "ไม่สามารถดึงข้อมูลการคืนได้" });
   }
-);
+});
 
-//🗑️ Admin ลบข้อมูลการจอง
-router.delete(
-  "/:bookingId",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const { bookingId } = req.params;
+//✏️ Admin แก้ไขข้อมูลการคืน
+router.put("/checkout/:bookingId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const { checkout, returnStatus } = req.body;
 
-      const deleted = await prisma.booking.delete({
-        where: { bookingId },
-      });
+    const booking = await prisma.booking.findUnique({
+      where: { bookingId },
+      include: { customer: true, room: true },
+    });
+    if (!booking) return res.status(404).json({ error: "ไม่พบข้อมูลการคืน" });
 
-      res.json({ message: "🗑️ ลบข้อมูลการจองสำเร็จ", booking: deleted });
-    } catch (err) {
-      console.error("❌ Error deleting booking:", err);
-      res.status(500).json({ error: "ไม่สามารถลบข้อมูลการจองได้" });
-    }
+    const updatedBooking = await prisma.booking.update({
+      where: { bookingId },
+      data: {
+        ...(checkout && { checkout: new Date(checkout) }),
+        ...(returnStatus !== undefined && { returnStatus }),
+      },
+      include: { room: true, customer: true },
+    });
+
+    res.json({ message: "✏️ แก้ไขข้อมูลการคืนสำเร็จ", booking: updatedBooking });
+  } catch (err) {
+    console.error("❌ Error updating checkout:", err);
+    res.status(500).json({ error: "ไม่สามารถแก้ไขข้อมูลการคืนได้" });
   }
-);
+});
+
+//🗑️ Admin ลบข้อมูลการคืน
+router.delete("/checkout/:bookingId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await prisma.booking.findUnique({ where: { bookingId } });
+    if (!booking) return res.status(404).json({ error: "ไม่พบข้อมูลการคืน" });
+
+    // ✅ ถ้าลบการคืนห้อง เราไม่ได้ลบทั้ง booking แต่ล้างค่า checkout + returnStatus
+    const updatedBooking = await prisma.booking.update({
+      where: { bookingId },
+      data: {
+        checkout: null,
+        returnStatus: null,
+      },
+    });
+
+    res.json({ message: "🗑️ ลบข้อมูลการคืนสำเร็จ", booking: updatedBooking });
+  } catch (err) {
+    console.error("❌ Error deleting checkout:", err);
+    res.status(500).json({ error: "ไม่สามารถลบข้อมูลการคืนได้" });
+  }
+});
 
 export default router;
