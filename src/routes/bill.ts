@@ -5,9 +5,7 @@ import { authMiddleware } from "../middleware/authMiddleware";
 
 const router = Router();
 
-/**
- * 📝 สร้าง Bill ใหม่ (Admin เท่านั้น)
- */
+//📝 สร้าง Bill ใหม่ (Admin เท่านั้น)
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { roomId, customerId, month, rent, service,
@@ -46,9 +44,7 @@ router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-/**
- * 📌 ดึงบิลทั้งหมด
- */
+//📌 ดึงบิลทั้งหมด
 router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
   try {
     const bills = await prisma.bill.findMany({
@@ -62,9 +58,7 @@ router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
   }
 });
 
-/**
- * 📌 ดึงบิลรายตัว
- */
+//📌 ดึงบิลรายตัว
 router.get("/:billId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { billId } = req.params;
@@ -80,9 +74,7 @@ router.get("/:billId", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-/**
- * ✏️ อัปเดตบิล
- */
+//✏️ อัปเดตบิล
 router.put("/:billId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { billId } = req.params;
@@ -103,9 +95,7 @@ router.put("/:billId", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-/**
- * ❌ ลบบิล
- */
+//❌ ลบบิล
 router.delete("/:billId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { billId } = req.params;

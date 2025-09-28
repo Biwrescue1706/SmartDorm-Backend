@@ -5,9 +5,7 @@ import { authMiddleware } from "../middleware/authMiddleware";
 
 const router = Router();
 
-/**
- * 🏠 ดึงข้อมูลห้องทั้งหมด
- */
+//🏠 ดึงข้อมูลห้องทั้งหมด
 router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const rooms = await prisma.room.findMany({
@@ -26,9 +24,7 @@ router.get("/getall", async (_req: Request, res: Response) => {
   }
 });
 
-/**
- * 🏠 ดึงข้อมูลห้องตาม roomId
- */
+//🏠 ดึงข้อมูลห้องตาม roomId
 router.get("/:roomId", async (req: Request, res: Response) => {
   try {
     const { roomId } = req.params;
@@ -51,9 +47,7 @@ router.get("/:roomId", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * ➕ เพิ่มห้อง (Admin)
- */
+//➕ เพิ่มห้อง (Admin)
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { number, size, rent, deposit, bookingFee } = req.body;
@@ -84,9 +78,7 @@ router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-/**
- * ✏️ แก้ไขห้อง (Admin)
- */
+// ✏️ แก้ไขห้อง (Admin)
 router.put("/:roomId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { roomId } = req.params;
@@ -116,9 +108,7 @@ router.put("/:roomId", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-/**
- * ❌ ลบห้อง (Admin)
- */
+//❌ ลบห้อง (Admin)
 router.delete(
   "/:roomId",
   authMiddleware,

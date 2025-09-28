@@ -6,9 +6,7 @@ import { notifyUser } from "../utils/lineNotify";
 
 const router = Router();
 
-/**
- * 📤 User ส่งสลิปการจ่ายบิล
- */
+//📤 User ส่งสลิปการจ่ายบิล
 router.post("/create", async (req: Request, res: Response) => {
   try {
     const { slipUrl, billId } = req.body;
@@ -61,9 +59,7 @@ router.post("/create", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * ✅ Admin ยืนยันการจ่าย
- */
+//✅ Admin ยืนยันการจ่าย
 router.put(
   "/:paymentId/verify",
   authMiddleware,
@@ -98,9 +94,7 @@ router.put(
   }
 );
 
-/**
- * ❌ Admin ยกเลิก/ปฏิเสธการจ่าย
- */
+//❌ Admin ยกเลิก/ปฏิเสธการจ่าย
 router.put(
   "/:paymentId/reject",
   authMiddleware,
@@ -138,9 +132,7 @@ router.put(
   }
 );
 
-/**
- * 📌 Admin ดูการจ่ายทั้งหมด
- */
+//📌 Admin ดูการจ่ายทั้งหมด
 router.get("/", async (_req: Request, res: Response) => {
   try {
     const payments = await prisma.payment.findMany({

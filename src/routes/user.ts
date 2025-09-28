@@ -4,9 +4,7 @@ import prisma from "../prisma";
 
 const router = Router();
 
-/**
- * 📝 สมัครหรืออัปเดต Customer ผ่าน LINE LIFF
- */
+//📝 สมัครหรืออัปเดต Customer ผ่าน LINE LIFF
 router.post("/register", async (req: Request, res: Response) => {
   try {
     const { userId, ctitle, userName, cmumId, cname, csurname, cphone } = req.body;
@@ -52,9 +50,7 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * 📌 ดึงข้อมูล Customer + Bookings + Bills
- */
+//📌 ดึงข้อมูล Customer + Bookings + Bills
 router.get("/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -62,8 +58,8 @@ router.get("/:userId", async (req: Request, res: Response) => {
     const customer = await prisma.customer.findUnique({
       where: { userId },
       include: {
-        bookings: { include: { room: true, payments: true } }, // ✅ แก้เป็น payments
-        bills: { include: { room: true, payment: true } },     // ✅ Bill ใช้ payment เดียว
+        bookings: { include: { room: true, payment: true } }, // ✅ แก้เป็น payment
+        bills: { include: { room: true, payment: true } },    // ✅ Bill ใช้ payment เดียว
       },
     });
 
@@ -76,9 +72,7 @@ router.get("/:userId", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * 💰 ดูประวัติการจ่ายเงินของ Customer
- */
+//💰 ดูประวัติการจ่ายเงินของ Customer
 router.get("/:userId/payments", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -86,8 +80,8 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
     const customer = await prisma.customer.findUnique({
       where: { userId },
       include: {
-        bills: { include: { payment: true, room: true } },      // ✅ Bill มี payment เดียว
-        bookings: { include: { payments: true, room: true } }, // ✅ Booking มี payments[]
+        bills: { include: { payment: true, room: true } },     // ✅ Bill มี payment เดียว
+        bookings: { include: { payment: true, room: true } },  // ✅ Booking มี payment เดียว
       },
     });
 
@@ -104,16 +98,16 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
           slipUrl: b.payment?.slipUrl,
           createdAt: b.payment?.createdAt,
         })),
-      ...customer.bookings.flatMap((bk) =>
-        bk.payments.map((p) => ({
+      ...customer.bookings
+        .filter((bk) => bk.payment)
+        .map((bk) => ({
           type: "booking" as const,
           bookingId: bk.bookingId,
           roomNumber: bk.room.number,
-          amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee, // ✅ รวมค่าทั้งหมด
-          slipUrl: p.slipUrl,
-          createdAt: p.createdAt,
-        }))
-      ),
+          amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee,
+          slipUrl: bk.payment?.slipUrl,
+          createdAt: bk.payment?.createdAt,
+        })),
     ].sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
 
     res.json({ userId: customer.userId, payments });
