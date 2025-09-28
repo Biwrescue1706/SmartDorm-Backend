@@ -103,26 +103,27 @@ model Booking {
   roomId       String    @db.ObjectId
   customerId   String    @db.ObjectId
   checkin      DateTime
-  checkout     DateTime?
-  status       Int // 0=รออนุมัติ, 1=อนุมัติแล้ว, 2=ปฏิเสธ
-  paymentId    String?   @unique @db.ObjectId
-  returnStatus Int?
+  status       Int
   createdAt    DateTime  @default(now())
+  checkout     DateTime?
+  returnStatus Int?      @default(0)
   updatedAt    DateTime  @updatedAt
 
+  // FK relations
   room     Room     @relation(fields: [roomId], references: [roomId])
   customer Customer @relation(fields: [customerId], references: [customerId])
-  payment  Payment? @relation("BookingPayment", fields: [paymentId], references: [paymentId]) // ✅ กำหนดด้านนี้
+  payment  Payment? // ✅ Prisma จะ map ไปที่ bookingId ฝั่ง Payment ให้เอง
 }
 
 model Payment {
-  paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
-  billId    String   @unique @db.ObjectId
+  paymentId String  @id @default(auto()) @map("_id") @db.ObjectId
+  billId    String  @unique @db.ObjectId
+  bookingId String? @unique @db.ObjectId
   slipUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bookingId String?  @unique @db.ObjectId
-  booking   Booking? @relation("BookingPayment") // ✅ ใช้ชื่อ relation ตรงกัน แต่ไม่ต้องใส่ fields/references
-  bill      Bill     @relation(fields: [billId], references: [billId])
+  // Relations
+  booking Booking? @relation(fields: [bookingId], references: [bookingId])
+  bill    Bill     @relation(fields: [billId], references: [billId])
 }
