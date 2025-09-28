@@ -13,70 +13,113 @@ const UPLOAD_DIR = path.join(__dirname, "../../uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 // ✅ ใช้ memoryStorage (เก็บใน RAM ก่อน)
-const upload = multer({ storage: multer.memoryStorage()});
+const upload = multer({ storage: multer.memoryStorage() });
 
 // 📝 User ขอจองห้อง (แนบ slip ได้ทั้งแบบ url และไฟล์จริง)
-router.post("/create", upload.single("slip"), async (req: Request, res: Response) => {
-  try {
-    // 👉 log เพื่อ debug
-    console.log("📥 req.body:", req.body);
-    console.log("📎 req.file:", req.file?.originalname);
+router.post(
+  "/create",
+  upload.single("slip"),
+  async (req: Request, res: Response) => {
+    try {
+      // 👉 log เพื่อ debug
+      console.log("📥 req.body:", req.body);
+      console.log("📎 req.file:", req.file?.originalname);
 
-    const { userId, ctitle, userName, roomId, checkin, cname, csurname, cphone, cmumId, slipUrl } = req.body;
-    const slipFile = req.file;
+      const {
+        userId,
+        ctitle,
+        userName,
+        roomId,
+        checkin,
+        cname,
+        csurname,
+        cphone,
+        cmumId,
+        slipUrl,
+      } = req.body;
+      const slipFile = req.file;
 
-    if (!userId || !roomId || !checkin) {
-      return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ", debug: { userId, roomId, checkin } });
-    }
+      if (!userId || !roomId || !checkin) {
+        return res
+          .status(400)
+          .json({
+            error: "กรุณากรอกข้อมูลให้ครบ",
+            debug: { userId, roomId, checkin },
+          });
+      }
 
-    // หา/สร้าง Customer
-    let customer = await prisma.customer.findFirst({ where: { userId } });
-    if (!customer) {
-      customer = await prisma.customer.create({
-        data: { userId, userName, ctitle, cname, csurname, cphone, cmumId, fullName: `${cname} ${csurname}` },
+      // หา/สร้าง Customer
+      let customer = await prisma.customer.findFirst({ where: { userId } });
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            userId,
+            userName,
+            ctitle,
+            cname,
+            csurname,
+            cphone,
+            cmumId,
+            fullName: `${cname} ${csurname}`,
+          },
+        });
+      }
+
+      // ตรวจสอบห้อง
+      const room = await prisma.room.findUnique({ where: { roomId } });
+      if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
+      if (room.status !== 0)
+        return res.status(400).json({ error: "ห้องไม่ว่าง" });
+
+      // จัดการ slip
+      let finalSlipUrl = slipUrl || "";
+      if (slipFile) {
+        const filename = `${Date.now()}_${slipFile.originalname}`;
+        const filepath = path.join(UPLOAD_DIR, filename);
+        await fs.promises.writeFile(filepath, slipFile.buffer);
+        finalSlipUrl = `/uploads/${filename}`;
+      }
+
+      // ตรวจสอบ booking ที่ยัง active
+      const existing = await prisma.booking.findFirst({
+        where: { customerId: customer.customerId, status: { in: [0, 1] } },
       });
-    }
+      if (existing)
+        return res
+          .status(400)
+          .json({ error: "คุณมีการจองหรือเข้าพักอยู่แล้ว" });
 
-    // ตรวจสอบห้อง
-    const room = await prisma.room.findUnique({ where: { roomId } });
-    if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
-    if (room.status !== 0) return res.status(400).json({ error: "ห้องไม่ว่าง" });
-
-    // จัดการ slip
-    let finalSlipUrl = slipUrl || "";
-    if (slipFile) {
-      const filename = `${Date.now()}_${slipFile.originalname}`;
-      const filepath = path.join(UPLOAD_DIR, filename);
-      await fs.promises.writeFile(filepath, slipFile.buffer);
-      finalSlipUrl = `/uploads/${filename}`;
-    }
-
-    // ตรวจสอบ booking ที่ยัง active
-    const existing = await prisma.booking.findFirst({ where: { customerId: customer.customerId, status: { in: [0, 1] } } });
-    if (existing) return res.status(400).json({ error: "คุณมีการจองหรือเข้าพักอยู่แล้ว" });
-
-    // สร้าง booking
-    const booking = await prisma.booking.create({
-      data: { customerId: customer.customerId, roomId, checkin: new Date(checkin), status: 0 },
-      include: { customer: true, room: true, payment: true },
-    });
-
-    // สร้าง Payment ถ้ามี slip
-    if (finalSlipUrl) {
-      await prisma.payment.create({
-        data: { bookingId: booking.bookingId, slipUrl: finalSlipUrl },
+      // สร้าง booking
+      const booking = await prisma.booking.create({
+        data: {
+          customerId: customer.customerId,
+          roomId,
+          checkin: new Date(checkin),
+          status: 0,
+        },
+        include: { customer: true, room: true, payment: true },
       });
+
+      // สร้าง Payment ถ้ามี slip
+      if (finalSlipUrl) {
+        await prisma.payment.create({
+          data: { bookingId: booking.bookingId, slipUrl: finalSlipUrl },
+        });
+      }
+
+      // แจ้ง Admin
+      await notifyUser(
+        process.env.ADMIN_LINE_ID!,
+        `📢 ผู้เช่า ${customer.cname} (${customer.cphone}) ส่งคำขอจองห้อง ${room.number}`
+      );
+
+      res.json({ message: "✅ ส่งคำขอจองเรียบร้อย รอแอดมินอนุมัติ", booking });
+    } catch (err) {
+      console.error("❌ Error create booking:", err);
+      res.status(500).json({ error: "ไม่สามารถจองห้องได้" });
     }
-
-    // แจ้ง Admin
-    await notifyUser(process.env.ADMIN_LINE_ID!, `📢 ผู้เช่า ${customer.cname} (${customer.cphone}) ส่งคำขอจองห้อง ${room.number}`);
-
-    res.json({ message: "✅ ส่งคำขอจองเรียบร้อย รอแอดมินอนุมัติ", booking });
-  } catch (err) {
-    console.error("❌ Error create booking:", err);
-    res.status(500).json({ error: "ไม่สามารถจองห้องได้" });
   }
-});
+);
 
 //🚪 ผู้เช่าคืนห้อง
 router.put("/:bookingId/checkout", async (req: Request, res: Response) => {
