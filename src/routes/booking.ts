@@ -21,10 +21,6 @@ router.post(
   upload.single("slip"),
   async (req: Request, res: Response) => {
     try {
-      // 👉 log เพื่อ debug
-      console.log("📥 req.body:", req.body);
-      console.log("📎 req.file:", req.file?.originalname);
-
       const {
         userId,
         ctitle,
@@ -40,12 +36,7 @@ router.post(
       const slipFile = req.file;
 
       if (!userId || !roomId || !checkin) {
-        return res
-          .status(400)
-          .json({
-            error: "กรุณากรอกข้อมูลให้ครบ",
-            debug: { userId, roomId, checkin },
-          });
+        return res.status(400).json({ error: "ข้อมูลไม่ครบ" });
       }
 
       // หา/สร้าง Customer
@@ -65,13 +56,13 @@ router.post(
         });
       }
 
-      // ตรวจสอบห้อง
+      // ✅ ตรวจสอบห้อง
       const room = await prisma.room.findUnique({ where: { roomId } });
       if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
       if (room.status !== 0)
         return res.status(400).json({ error: "ห้องไม่ว่าง" });
 
-      // จัดการ slip
+      // ✅ จัดการ slip (ถ้ามีการอัปโหลดไฟล์)
       let finalSlipUrl = slipUrl || "";
       if (slipFile) {
         const filename = `${Date.now()}_${slipFile.originalname}`;
@@ -80,33 +71,26 @@ router.post(
         finalSlipUrl = `/uploads/${filename}`;
       }
 
-      // ตรวจสอบ booking ที่ยัง active
+      // ✅ ตรวจสอบว่ามี booking ค้างอยู่ไหม
       const existing = await prisma.booking.findFirst({
         where: { customerId: customer.customerId, status: { in: [0, 1] } },
       });
-      if (existing)
-        return res
-          .status(400)
-          .json({ error: "คุณมีการจองหรือเข้าพักอยู่แล้ว" });
+      if (existing) {
+        return res.status(400).json({ error: "คุณมีการจอง/เข้าพักอยู่แล้ว" });
+      }
 
-      // สร้าง booking
+      // ✅ สร้าง booking (status = 0 รออนุมัติ)
       const booking = await prisma.booking.create({
         data: {
           customerId: customer.customerId,
           roomId,
           checkin: new Date(checkin),
+          slipUrl: finalSlipUrl,
           status: 0,
         },
-        include: { customer: true, room: true, payment: true },
+        include: { customer: true, room: true },
       });
-
-      // สร้าง Payment ถ้ามี slip
-      if (finalSlipUrl) {
-        await prisma.payment.create({
-          data: { bookingId: booking.bookingId, slipUrl: finalSlipUrl },
-        });
-      }
-
+      
       // แจ้ง Admin
       await notifyUser(
         process.env.ADMIN_LINE_ID!,

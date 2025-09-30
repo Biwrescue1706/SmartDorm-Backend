@@ -102,6 +102,7 @@ model Booking {
   bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
   roomId       String    @db.ObjectId
   customerId   String    @db.ObjectId
+  slipUrl      String
   checkin      DateTime
   status       Int
   createdAt    DateTime  @default(now())
@@ -112,18 +113,15 @@ model Booking {
   // FK relations
   room     Room     @relation(fields: [roomId], references: [roomId])
   customer Customer @relation(fields: [customerId], references: [customerId])
-  payment  Payment? // ✅ Prisma จะ map ไปที่ bookingId ฝั่ง Payment ให้เอง
 }
 
 model Payment {
   paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
   billId    String?  @unique @db.ObjectId
-  bookingId String?  @unique @db.ObjectId
   slipUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  booking Booking? @relation(fields: [bookingId], references: [bookingId])
   bill    Bill?     @relation(fields: [billId], references: [billId])
 }
