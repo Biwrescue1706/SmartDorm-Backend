@@ -39,7 +39,7 @@ router.post(
         return res.status(400).json({ error: "ข้อมูลไม่ครบ" });
       }
 
-      // หา/สร้าง Customer
+      // ✅ หา/สร้าง Customer
       let customer = await prisma.customer.findFirst({ where: { userId } });
       if (!customer) {
         customer = await prisma.customer.create({
@@ -62,13 +62,16 @@ router.post(
       if (room.status !== 0)
         return res.status(400).json({ error: "ห้องไม่ว่าง" });
 
-      // ✅ จัดการ slip (ถ้ามีการอัปโหลดไฟล์)
+      // ✅ จัดการ slip
       let finalSlipUrl = slipUrl || "";
       if (slipFile) {
         const filename = `${Date.now()}_${slipFile.originalname}`;
         const filepath = path.join(UPLOAD_DIR, filename);
         await fs.promises.writeFile(filepath, slipFile.buffer);
-        finalSlipUrl = `/uploads/${filename}`;
+
+        // สร้าง URL ที่เข้าถึงได้จริง
+        const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+        finalSlipUrl = `${baseUrl}/uploads/${filename}`;
       }
 
       // ✅ ตรวจสอบว่ามี booking ค้างอยู่ไหม
@@ -90,7 +93,7 @@ router.post(
         },
         include: { customer: true, room: true },
       });
-      
+
       // แจ้ง Admin
       await notifyUser(
         process.env.ADMIN_LINE_ID!,
@@ -105,7 +108,7 @@ router.post(
   }
 );
 
-//🚪 ผู้เช่าคืนห้อง
+// 🚪 ผู้เช่าขอคืนห้อง
 router.put("/:bookingId/checkout", async (req: Request, res: Response) => {
   try {
     const { bookingId } = req.params;
@@ -146,7 +149,7 @@ router.put("/:bookingId/checkout", async (req: Request, res: Response) => {
   }
 });
 
-//✅ Admin อนุมัติการจอง
+// ✅ Admin อนุมัติการจอง
 router.put(
   "/:bookingId/approve",
   authMiddleware,
@@ -188,7 +191,7 @@ router.put(
   }
 );
 
-//❌ Admin ปฏิเสธการจอง
+// ❌ Admin ปฏิเสธการจอง
 router.put(
   "/:bookingId/reject",
   authMiddleware,
@@ -220,7 +223,7 @@ router.put(
   }
 );
 
-//📌 ดึงการจองทั้งหมด (Admin)
+// 📌 ดึงการจองทั้งหมด
 router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const bookings = await prisma.booking.findMany({
@@ -236,80 +239,6 @@ router.get("/getall", async (_req: Request, res: Response) => {
     res.status(500).json({ error: "ไม่สามารถดึงข้อมูลการจองได้" });
   }
 });
-
-//✏️ Admin แก้ไขข้อมูลการจอง
-router.put(
-  "/:bookingId",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const { bookingId } = req.params;
-      const { ctitle, cname, csurname, cmumId, cphone, status, checkin } =
-        req.body;
-
-      const booking = await prisma.booking.findUnique({
-        where: { bookingId },
-        include: { customer: true },
-      });
-      if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
-
-      const updatedBooking = await prisma.booking.update({
-        where: { bookingId },
-        data: {
-          ...(status !== undefined && { status }),
-          ...(checkin && { checkin: new Date(checkin) }),
-        },
-        include: { customer: true, room: true },
-      });
-
-      if (ctitle || cname || csurname || cmumId || cphone) {
-        await prisma.customer.update({
-          where: { customerId: booking.customerId },
-          data: {
-            ...(ctitle && { ctitle }),
-            ...(cname && { cname }),
-            ...(csurname && { csurname }),
-            ...(cmumId && { cmumId }),
-            ...(cphone && { cphone }),
-            ...(cname || csurname
-              ? {
-                  fullName: `${cname || booking.customer.cname} ${csurname || booking.customer.csurname}`,
-                }
-              : {}),
-          },
-        });
-      }
-
-      res.json({
-        message: "✏️ แก้ไขข้อมูลการจองสำเร็จ",
-        booking: updatedBooking,
-      });
-    } catch (err) {
-      console.error("❌ Error updating booking:", err);
-      res.status(500).json({ error: "ไม่สามารถแก้ไขข้อมูลการจองได้" });
-    }
-  }
-);
-
-//🗑️ Admin ลบข้อมูลการจอง
-router.delete(
-  "/:bookingId",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const { bookingId } = req.params;
-
-      const deleted = await prisma.booking.delete({
-        where: { bookingId },
-      });
-
-      res.json({ message: "🗑️ ลบข้อมูลการจองสำเร็จ", booking: deleted });
-    } catch (err) {
-      console.error("❌ Error deleting booking:", err);
-      res.status(500).json({ error: "ไม่สามารถลบข้อมูลการจองได้" });
-    }
-  }
-);
 
 //การคืน
 
