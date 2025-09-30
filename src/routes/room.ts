@@ -24,15 +24,15 @@ router.get("/getall", async (_req: Request, res: Response) => {
   }
 });
 
-//🏠 ดึงข้อมูลห้องตาม roomId
+// 🏠 ดึงข้อมูลห้องตาม roomId
 router.get("/:roomId", async (req: Request, res: Response) => {
   try {
     const { roomId } = req.params;
     const room = await prisma.room.findUnique({
       where: { roomId },
       include: {
-        bookings: { include: { customer: true, payment: true } },
-        bills: { include: { customer: true, payment: true } },
+        bookings: { include: { customer: true } }, // ✅ booking ไม่มี payment
+        bills: { include: { customer: true, payment: true } }, // ✅ bill มี payment
         adminCreated: { select: { adminId: true, username: true, name: true } },
         adminUpdated: { select: { adminId: true, username: true, name: true } },
       },
