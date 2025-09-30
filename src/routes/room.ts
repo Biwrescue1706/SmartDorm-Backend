@@ -31,8 +31,8 @@ router.get("/:roomId", async (req: Request, res: Response) => {
     const room = await prisma.room.findUnique({
       where: { roomId },
       include: {
-        bookings: { include: { customer: true } }, // ✅ booking ไม่มี payment
-        bills: { include: { customer: true, payment: true } }, // ✅ bill มี payment
+        bookings: { include: { customer: true } },
+        bills: { include: { customer: true} },
         adminCreated: { select: { adminId: true, username: true, name: true } },
         adminUpdated: { select: { adminId: true, username: true, name: true } },
       },
@@ -46,6 +46,7 @@ router.get("/:roomId", async (req: Request, res: Response) => {
     res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลห้องได้" });
   }
 });
+
 
 //➕ เพิ่มห้อง (Admin)
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {

@@ -9,9 +9,9 @@ datasource db {
 
 model Admin {
   adminId   String   @id @default(auto()) @map("_id") @db.ObjectId
-  username  String   @unique
-  name      String
-  password  String
+  username  String   @unique //username
+  name      String //ชื่อแอดมิน
+  password  String //รหัสผ่าน
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -23,17 +23,16 @@ model Admin {
 
 model Room {
   roomId     String   @id @default(auto()) @map("_id") @db.ObjectId
-  number     String   @unique
-  size       String
-  rent       Int
-  deposit    Int
-  bookingFee Int
+  number     String   @unique //เลขห้อง
+  size       String //ขนาดของห้อง
+  rent       Int //ค่าเช่าห้อง
+  deposit    Int //ค่าประกันห้อง
+  bookingFee Int //ค่าจองห้อง
   status     Int // 0 = ว่าง, 1 = ไม่ว่าง
   createdAt  DateTime @default(now())
+  createdBy  String   @db.ObjectId //สร้างโดยใคร
   updatedAt  DateTime @updatedAt
-
-  createdBy String  @db.ObjectId
-  updatedBy String? @db.ObjectId
+  updatedBy  String?  @db.ObjectId //แก้ไขโดยใคร
 
   adminCreated Admin? @relation("RoomCreatedBy", fields: [createdBy], references: [adminId])
   adminUpdated Admin? @relation("RoomUpdatedBy", fields: [updatedBy], references: [adminId])
@@ -44,19 +43,35 @@ model Room {
 
 model Customer {
   customerId String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String   @unique // LINE LIFF userId (1 User = 1 record)
-  userName   String
-  ctitle     String
-  cname      String
-  csurname   String
-  fullName   String
-  cphone     String
-  cmumId     String
+  userId     String   @unique // LINE LIFF userId
+  userName   String // LINE LIFF displayName
+  ctitle     String // คำนำหน้าชื่อ
+  cname      String //ชื่อ
+  csurname   String //นามสกุล
+  fullName   String // ชื่อเต็ม ctitle + cname + csurname
+  cphone     String //เบอรโทร
+  cmumId     String //บัตรประชาชน
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   bookings Booking[]
   bills    Bill[]
+}
+
+model Booking {
+  bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
+  roomId       String    @db.ObjectId 
+  customerId   String    @db.ObjectId
+  slipUrl      String?  //รูปสลิป แบบ Url
+  checkin      DateTime //การเข้าพัก
+  checkout     DateTime? //การออก
+  status       Int  // 0 = รออนุมัติ , 1 = อนุมัติการจอง , 2 = ไม่อนุมัติการจอง
+  returnStatus Int? // 0 = รออนุมัติ , 1 = อนุมัติการคืน , 2 = ไม่อนุมัติการคืน
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  room     Room     @relation(fields: [roomId], references: [roomId])
+  customer Customer @relation(fields: [customerId], references: [customerId])
 }
 
 model Bill {
@@ -76,7 +91,7 @@ model Bill {
   fine      Int
   total     Int
   slipUrl   String
-  status    Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว, 2=รอตรวจสอบ
+  status    Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -94,34 +109,15 @@ model Bill {
   adminCreated Admin?  @relation("BillCreatedBy", fields: [createdBy], references: [adminId])
   adminUpdated Admin?  @relation("BillUpdatedBy", fields: [updatedBy], references: [adminId])
 
-  // 1 Bill = 1 Payment
   payment Payment?
-}
-
-model Booking {
-  bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
-  roomId       String    @db.ObjectId
-  customerId   String    @db.ObjectId
-  slipUrl      String
-  checkin      DateTime
-  status       Int
-  createdAt    DateTime  @default(now())
-  checkout     DateTime?
-  returnStatus Int?      @default(0)
-  updatedAt    DateTime  @updatedAt
-
-  // FK relations
-  room     Room     @relation(fields: [roomId], references: [roomId])
-  customer Customer @relation(fields: [customerId], references: [customerId])
 }
 
 model Payment {
   paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
-  billId    String?  @unique @db.ObjectId
+  billId    String   @unique @db.ObjectId // 👈 บังคับไม่ให้ซ้ำ (1 บิล = 1 Payment)
   slipUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  bill    Bill?     @relation(fields: [billId], references: [billId])
+  bill Bill @relation(fields: [billId], references: [billId])
 }
