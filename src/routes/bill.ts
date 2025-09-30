@@ -2,30 +2,57 @@
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
+import { notifyUser } from "../utils/lineNotify";
 
 const router = Router();
 
 //📝 สร้าง Bill ใหม่ (Admin เท่านั้น)
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { roomId, customerId, month, rent, service,
-      wBefore, wAfter, wUnits, wPrice,
-      eBefore, eAfter, eUnits, ePrice,
-      fine, total } = req.body;
+    const {
+      roomId,
+      customerId,
+      month,
+      rent,
+      service,
+      wBefore,
+      wAfter,
+      wUnits,
+      wPrice,
+      eBefore,
+      eAfter,
+      eUnits,
+      ePrice,
+      fine,
+      total,
+    } = req.body;
 
     // ✅ validate input
     if (!roomId || !customerId || !month) {
       return res.status(400).json({ error: "กรอกข้อมูลไม่ครบ" });
     }
 
+    // ✅ สร้างเลขบิล (running number ต่อเดือน)
+    const count = await prisma.bill.count({
+      where: { month: new Date(month) },
+    });
+    const number = `BILL-${new Date(month).toISOString().slice(0, 7)}-${count + 1}`;
+
+    // ✅ สร้างบิล
     const bill = await prisma.bill.create({
       data: {
-        number: `BILL-${Date.now()}`, // gen running number
-        month: new Date(month),
+        number,
+        month: new Date(month), //จะสร้างเป็นแบบ 25 เดือน ปี +543
         rent,
         service,
-        wBefore, wAfter, wUnits, wPrice,
-        eBefore, eAfter, eUnits, ePrice,
+        wBefore,
+        wAfter,
+        wUnits,
+        wPrice,
+        eBefore,
+        eAfter,
+        eUnits,
+        ePrice,
         fine,
         total,
         status: 0, // 0 = ยังไม่ชำระ
@@ -37,7 +64,18 @@ router.post("/create", authMiddleware, async (req: Request, res: Response) => {
       include: { room: true, customer: true },
     });
 
-    res.json({ message: "✅ สร้าง Bill สำเร็จ", bill });
+    // 📢 แจ้งเตือนลูกค้าทาง LINE
+    if (bill.customer.userId) {
+      const Usermsg =
+        `📢 บิลใหม่แล้ว!\n` +
+        `ห้อง: ${bill.room.number}\n` +
+        `เดือน: ${bill.month.toLocaleDateString("th-TH", { year: "numeric", month: "long" })}\n` +
+        `ยอดรวม: ${bill.total.toLocaleString()} บาท\n\n` +
+        `กรุณาชำระภายใน วันที่ 5 ของเดือน ขอบคุณครับ 🙏`;
+      await notifyUser(bill.customer.userId, Usermsg);
+    }
+
+    res.json({ message: "✅ สร้าง Bill สำเร็จ และแจ้งเตือนลูกค้าแล้ว", bill });
   } catch (err) {
     console.error("❌ Error creating bill:", err);
     res.status(500).json({ error: "ไม่สามารถสร้างบิลได้" });
@@ -96,15 +134,19 @@ router.put("/:billId", authMiddleware, async (req: Request, res: Response) => {
 });
 
 //❌ ลบบิล
-router.delete("/:billId", authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { billId } = req.params;
-    await prisma.bill.delete({ where: { billId } });
-    res.json({ message: "🗑️ ลบบิลสำเร็จ" });
-  } catch (err) {
-    console.error("❌ Error deleting bill:", err);
-    res.status(500).json({ error: "ไม่สามารถลบบิลได้" });
+router.delete(
+  "/:billId",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const { billId } = req.params;
+      await prisma.bill.delete({ where: { billId } });
+      res.json({ message: "🗑️ ลบบิลสำเร็จ" });
+    } catch (err) {
+      console.error("❌ Error deleting bill:", err);
+      res.status(500).json({ error: "ไม่สามารถลบบิลได้" });
+    }
   }
-});
+);
 
 export default router;

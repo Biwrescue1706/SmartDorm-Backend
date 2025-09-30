@@ -3,63 +3,89 @@ import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { notifyUser } from "../utils/lineNotify";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 const router = Router();
 
-//📤 User ส่งสลิปการจ่ายบิล
-router.post("/create", async (req: Request, res: Response) => {
-  try {
-    const { slipUrl, billId } = req.body;
+// 📂 โฟลเดอร์เก็บไฟล์สลิป
+const UPLOAD_DIR = path.join(__dirname, "../../uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-    // ✅ ตรวจสอบบิล
-    const bill = await prisma.bill.findUnique({
-      where: { billId },
-      include: { customer: true, room: true },
-    });
-    if (!bill) return res.status(404).json({ error: "ไม่พบบิล" });
+// ✅ ใช้ memoryStorage (เก็บใน RAM ก่อน)
+const upload = multer({ storage: multer.memoryStorage() });
 
-    if (bill.status === 1) {
-      return res.status(400).json({ error: "บิลนี้ชำระแล้ว" });
+// 📤 User ส่งสลิปการจ่ายบิล
+router.post(
+  "/create",
+  upload.single("slip"),
+  async (req: Request, res: Response) => {
+    try {
+      const { billId } = req.body;
+      const slipFile = req.file;
+
+      // ✅ ตรวจสอบบิล
+      const bill = await prisma.bill.findUnique({
+        where: { billId },
+        include: { customer: true, room: true },
+      });
+      if (!bill) return res.status(404).json({ error: "ไม่พบบิล" });
+
+      if (bill.status === 1) {
+        return res.status(400).json({ error: "บิลนี้ชำระแล้ว" });
+      }
+
+      if (bill.status === 2) {
+        return res.status(400).json({ error: "บิลนี้กำลังรอตรวจสอบ" });
+      }
+
+      // ✅ จัดการ slip file
+      let slipUrl = "";
+      if (slipFile) {
+        const filename = `${Date.now()}_${slipFile.originalname}`;
+        const filepath = path.join(UPLOAD_DIR, filename);
+        await fs.promises.writeFile(filepath, slipFile.buffer);
+
+        const baseUrl =
+          process.env.BASE_URL || "https://smartdorm-backend.onrender.com";
+        slipUrl = `${baseUrl}/uploads/${filename}`;
+      } else {
+        return res.status(400).json({ error: "ต้องแนบสลิปการจ่าย" });
+      }
+
+      // ✅ สร้าง Payment
+      const payment = await prisma.payment.create({
+        data: {
+          slipUrl,
+          billId,
+        },
+      });
+
+      // ✅ อัปเดตบิลเป็น pending (2)
+      await prisma.bill.update({
+        where: { billId },
+        data: { status: 2, slipUrl },
+      });
+
+      // 🔔 Notify Admin
+      const adminMsg = `📢 ผู้เช่า ${bill.customer.fullName} 
+      เบอร์โทร(${bill.customer.cphone}) 
+      ส่งสลิปชำระบิล ${bill.number} 
+      ห้อง ${bill.room.number} 
+      https://smartdorm-frontend.onrender.com
+      `;
+      await notifyUser(process.env.ADMIN_LINE_ID!, adminMsg);
+
+      res.json({ message: "✅ ส่งสลิปสำเร็จ", payment });
+    } catch (err) {
+      console.error("❌ Error create payment:", err);
+      res.status(500).json({ error: "ไม่สามารถบันทึกการจ่ายได้" });
     }
-
-    if (bill.status === 2) {
-      return res.status(400).json({ error: "บิลนี้กำลังรอตรวจสอบ" });
-    }
-
-    // ✅ สร้าง Payment
-    const payment = await prisma.payment.create({
-      data: {
-        slipUrl,
-        billId, // ใช้ billId ตรงๆ
-      },
-    });
-
-    // ✅ อัปเดตบิลเป็น pending (2)
-    await prisma.bill.update({
-      where: { billId },
-      data: { status: 2, slipUrl },
-    });
-
-    // 🔔 Notify Admin
-    await notifyUser(
-      process.env.ADMIN_LINE_ID!,
-      `📢 ผู้เช่า ${bill.customer.cname} (${bill.customer.cphone}) ส่งสลิปชำระบิล ${bill.number} ห้อง ${bill.room.number} ยอด ${bill.total} บาท`
-    );
-
-    // 🔔 Notify User
-    await notifyUser(
-      bill.customer.userId,
-      `📤 คุณได้ส่งสลิปชำระบิล ${bill.number} ห้อง ${bill.room.number} ยอด ${bill.total} บาท (รอตรวจสอบ)`
-    );
-
-    res.json({ message: "✅ ส่งสลิปสำเร็จ", payment });
-  } catch (err) {
-    console.error("❌ Error create payment:", err);
-    res.status(500).json({ error: "ไม่สามารถบันทึกการจ่ายได้" });
   }
-});
+);
 
-//✅ Admin ยืนยันการจ่าย
+// ✅ Admin ยืนยันการจ่าย
 router.put(
   "/:paymentId/verify",
   authMiddleware,
@@ -81,10 +107,8 @@ router.put(
       });
 
       // 🔔 แจ้ง User
-      await notifyUser(
-        payment.bill.customer.userId,
-        `✅ การชำระบิล ${payment.bill.number} ห้อง ${payment.bill.room.number} ยอด ${payment.bill.total} บาท ได้รับการยืนยันแล้ว`
-      );
+      const Usermsg = `✅ การชำระบิล ห้อง${payment.bill.room.number} ได้รับการยืนยันแล้ว`;
+      await notifyUser(process.env.ADMIN_LINE_ID!, Usermsg);
 
       res.json({ message: "✅ ยืนยันการจ่ายสำเร็จ", bill: updatedBill });
     } catch (err) {
@@ -94,7 +118,7 @@ router.put(
   }
 );
 
-//❌ Admin ยกเลิก/ปฏิเสธการจ่าย
+// ❌ Admin ยกเลิก/ปฏิเสธการจ่าย
 router.put(
   "/:paymentId/reject",
   authMiddleware,
@@ -119,10 +143,8 @@ router.put(
       });
 
       // 🔔 แจ้ง User
-      await notifyUser(
-        payment.bill.customer.userId,
-        `❌ การชำระบิล ${payment.bill.number} ห้อง ${payment.bill.room.number} ไม่ผ่านการตรวจสอบ กรุณาติดต่อผู้ดูแล`
-      );
+      const Usermsg =`❌ การชำระบิล ห้อง${payment.bill.room.number} ไม่ผ่านการตรวจสอบ กรุณาติดต่อผู้ดูแล`;
+      await notifyUser(process.env.ADMIN_LINE_ID!, Usermsg);
 
       res.json({ message: "❌ ปฏิเสธการจ่ายแล้ว", bill: updatedBill });
     } catch (err) {
@@ -132,8 +154,8 @@ router.put(
   }
 );
 
-//📌 Admin ดูการจ่ายทั้งหมด
-router.get("/", async (_req: Request, res: Response) => {
+// 📌 Admin ดูการจ่ายทั้งหมด
+router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const payments = await prisma.payment.findMany({
       orderBy: { createdAt: "desc" },
