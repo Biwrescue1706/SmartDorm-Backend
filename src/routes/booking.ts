@@ -70,7 +70,7 @@ router.post(
         await fs.promises.writeFile(filepath, slipFile.buffer);
 
         // สร้าง URL ที่เข้าถึงได้จริง
-        const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+        const baseUrl = process.env.BASE_URL || "https://smartdorm-backend.onrender.com";
         finalSlipUrl = `${baseUrl}/uploads/${filename}`;
       }
 
