@@ -3,7 +3,6 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import path from "path";
 import prisma from "./prisma"; // ✅ Prisma client
 
 dotenv.config();
@@ -39,23 +38,22 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
-// 📂 เสิร์ฟไฟล์ uploads
-const UPLOAD_DIR = path.join(__dirname, "../uploads");
-app.use("/uploads", express.static(UPLOAD_DIR));
-
-// ---------------- Routes ----------------
+// ---------------- import Routes ----------------
 import adminRouter from "./routes/admin";
 import roomRouter from "./routes/room";
 import billsRouter from "./routes/bill";
 import bookingRouter from "./routes/booking";
+import checkoutRouter from "./routes/checkout";
 import paymentRouter from "./routes/payment";
 import userRouter from "./routes/user";
 import qrRouter from "./routes/qr";
 
+// ---------------- use Routes ----------------
 app.use("/admin", adminRouter);
 app.use("/room", roomRouter);
 app.use("/bills", billsRouter);
 app.use("/booking", bookingRouter);
+app.use("/checkout", checkoutRouter);
 app.use("/payment", paymentRouter);
 app.use("/user", userRouter);
 app.use("/qr", qrRouter);

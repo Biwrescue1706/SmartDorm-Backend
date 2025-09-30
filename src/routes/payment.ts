@@ -4,17 +4,18 @@ import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { notifyUser } from "../utils/lineNotify";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-// 📂 โฟลเดอร์เก็บไฟล์สลิป
-const UPLOAD_DIR = path.join(__dirname, "../../uploads");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
 // ✅ ใช้ memoryStorage (เก็บใน RAM ก่อน)
 const upload = multer({ storage: multer.memoryStorage() });
+
+// ✅ Init Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_KEY!
+);
 
 // 📤 User ส่งสลิปการจ่ายบิล
 router.post(
@@ -40,16 +41,28 @@ router.post(
         return res.status(400).json({ error: "บิลนี้กำลังรอตรวจสอบ" });
       }
 
-      // ✅ จัดการ slip file
+      // ✅ จัดการ slip file → Supabase Storage
       let slipUrl = "";
       if (slipFile) {
         const filename = `${Date.now()}_${slipFile.originalname}`;
-        const filepath = path.join(UPLOAD_DIR, filename);
-        await fs.promises.writeFile(filepath, slipFile.buffer);
 
-        const baseUrl =
-          process.env.BASE_URL || "https://smartdorm-backend.onrender.com";
-        slipUrl = `${baseUrl}/uploads/${filename}`;
+        const { error } = await supabase.storage
+          .from(process.env.SUPABASE_BUCKET!)
+          .upload(filename, slipFile.buffer, {
+            contentType: slipFile.mimetype,
+            upsert: true,
+          });
+
+        if (error) {
+          console.error("❌ Supabase upload error:", error.message);
+          return res.status(500).json({ error: "อัปโหลดสลิปไม่สำเร็จ" });
+        }
+
+        const { data } = supabase.storage
+          .from(process.env.SUPABASE_BUCKET!)
+          .getPublicUrl(filename);
+
+        slipUrl = data.publicUrl;
       } else {
         return res.status(400).json({ error: "ต้องแนบสลิปการจ่าย" });
       }
@@ -108,7 +121,7 @@ router.put(
 
       // 🔔 แจ้ง User
       const Usermsg = `✅ การชำระบิล ห้อง${payment.bill.room.number} ได้รับการยืนยันแล้ว`;
-      await notifyUser(process.env.ADMIN_LINE_ID!, Usermsg);
+      await notifyUser(payment.bill.customer.userId, Usermsg);
 
       res.json({ message: "✅ ยืนยันการจ่ายสำเร็จ", bill: updatedBill });
     } catch (err) {
@@ -143,8 +156,8 @@ router.put(
       });
 
       // 🔔 แจ้ง User
-      const Usermsg =`❌ การชำระบิล ห้อง${payment.bill.room.number} ไม่ผ่านการตรวจสอบ กรุณาติดต่อผู้ดูแล`;
-      await notifyUser(process.env.ADMIN_LINE_ID!, Usermsg);
+      const Usermsg = `❌ การชำระบิล ห้อง${payment.bill.room.number} ไม่ผ่านการตรวจสอบ กรุณาติดต่อผู้ดูแล`;
+      await notifyUser(payment.bill.customer.userId, Usermsg);
 
       res.json({ message: "❌ ปฏิเสธการจ่ายแล้ว", bill: updatedBill });
     } catch (err) {
