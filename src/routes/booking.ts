@@ -240,6 +240,70 @@ router.get("/getall", async (_req: Request, res: Response) => {
   }
 });
 
+// ✏️ Admin แก้ไขข้อมูลการจอง
+router.put("/:bookingId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const { ctitle, cname, csurname, cmumId, cphone, checkin, status } = req.body;
+
+    // ✅ หา booking
+    const booking = await prisma.booking.findUnique({
+      where: { bookingId },
+      include: { customer: true, room: true },
+    });
+    if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
+
+    // ✅ อัปเดต customer + booking
+    const updatedBooking = await prisma.booking.update({
+      where: { bookingId },
+      data: {
+        checkin: checkin ? new Date(checkin) : booking.checkin,
+        status: status !== undefined ? status : booking.status,
+        customer: {
+          update: {
+            ctitle,
+            cname,
+            csurname,
+            fullName: `${ctitle} ${cname} ${csurname}`,
+            cmumId,
+            cphone,
+          },
+        },
+      },
+      include: { customer: true, room: true },
+    });
+
+    res.json({ message: "✅ แก้ไขการจองสำเร็จ", booking: updatedBooking });
+  } catch (err) {
+    console.error("❌ Error updating booking:", err);
+    res.status(500).json({ error: "ไม่สามารถแก้ไขการจองได้" });
+  }
+});
+
+// 🗑️ Admin ลบการจอง
+router.delete("/:bookingId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await prisma.booking.findUnique({ where: { bookingId } });
+    if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
+
+    // คืนสถานะห้องเป็นว่าง
+    await prisma.room.update({
+      where: { roomId: booking.roomId },
+      data: { status: 0 },
+    });
+
+    // ลบ booking
+    await prisma.booking.delete({ where: { bookingId } });
+
+    res.json({ message: "🗑️ ลบการจองสำเร็จ" });
+  } catch (err) {
+    console.error("❌ Error deleting booking:", err);
+    res.status(500).json({ error: "ไม่สามารถลบการจองได้" });
+  }
+});
+
 //-----------------------------------การคืน------------------------------------
 
 // ✅ Admin อนุมัติการคืน
