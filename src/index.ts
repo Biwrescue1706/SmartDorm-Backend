@@ -1,9 +1,10 @@
+// src/index.ts
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
-import prisma from "./prisma"; // ✅ ดึง prisma client ที่เช็คการ connect มาแล้ว
+import prisma from "./prisma"; // ✅ Prisma client
 
 dotenv.config();
 
@@ -11,32 +12,34 @@ const allowedOrigins = [
   "http://localhost:5173", // frontend dev
   "http://localhost:5174", // frontend dev
   "https://smartdorm-frontend.onrender.com", // frontend render
-  "https://smartdorm-bookingroom.onrender.com", // liff
+  "https://smartdorm-bookingroom.onrender.com", // LIFF
 ];
 
 const app = express();
 
-// ✅ Middleware
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // Safari / Postman
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn("❌ Blocked by CORS:", origin);
-        callback(new Error("❌ CORS not allowed"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  })
-);
+// ✅ CORS Middleware
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // Safari / Postman
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn("❌ Blocked by CORS:", origin);
+      callback(new Error("❌ CORS not allowed"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+};
+app.use(cors(corsOptions));
+
+// ✅ ตอบ Preflight (OPTIONS)
+app.options("*", cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieParser());
 
-// 📂 เสิร์ฟไฟล์ uploads ออกไปให้ frontend
+// 📂 เสิร์ฟไฟล์ uploads
 const UPLOAD_DIR = path.join(__dirname, "../uploads");
 app.use("/uploads", express.static(UPLOAD_DIR));
 
@@ -114,7 +117,7 @@ app.listen(PORT, async () => {
   }
 });
 
-// ✅ จัดการ disconnect เวลา server ถูก kill
+// ✅ Disconnect Prisma เมื่อ server ถูก kill
 process.on("SIGINT", async () => {
   await prisma.$disconnect();
   console.log("🛑 Prisma disconnected (SIGINT)");
