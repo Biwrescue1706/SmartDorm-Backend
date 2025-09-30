@@ -1,13 +1,13 @@
-// src/routes/user.ts
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 
 const router = Router();
 
-//📝 สมัครหรืออัปเดต Customer ผ่าน LINE LIFF
+// 📝 สมัครหรืออัปเดต Customer ผ่าน LINE LIFF
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { userId, ctitle, userName, cmumId, cname, csurname, cphone } = req.body;
+    const { userId, ctitle, userName, cmumId, cname, csurname, cphone } =
+      req.body;
 
     if (!userId || !ctitle || !userName || !cname || !cphone) {
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
@@ -50,7 +50,7 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 });
 
-//📌 ดึงข้อมูล Customer + Bookings + Bills
+// 📌 ดึงข้อมูล Customer + Bookings + Bills
 router.get("/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -58,8 +58,8 @@ router.get("/:userId", async (req: Request, res: Response) => {
     const customer = await prisma.customer.findUnique({
       where: { userId },
       include: {
-        bookings: { include: { room: true, payment: true } }, // ✅ แก้เป็น payment
-        bills: { include: { room: true, payment: true } },    // ✅ Bill ใช้ payment เดียว
+        bookings: { include: { room: true } }, // ❌ booking ไม่มี payment
+        bills: { include: { room: true, payment: true } }, // ✅ bill มี payment
       },
     });
 
@@ -72,7 +72,7 @@ router.get("/:userId", async (req: Request, res: Response) => {
   }
 });
 
-//💰 ดูประวัติการจ่ายเงินของ Customer
+// 💰 ดูประวัติการจ่ายเงินของ Customer
 router.get("/:userId/payments", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -80,8 +80,8 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
     const customer = await prisma.customer.findUnique({
       where: { userId },
       include: {
-        bills: { include: { payment: true, room: true } },     // ✅ Bill มี payment เดียว
-        bookings: { include: { payment: true, room: true } },  // ✅ Booking มี payment เดียว
+        bills: { include: { payment: true, room: true } }, // ✅ bill มี payment
+        bookings: { include: { room: true } }, // ❌ booking ไม่มี payment
       },
     });
 
@@ -98,16 +98,15 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
           slipUrl: b.payment?.slipUrl,
           createdAt: b.payment?.createdAt,
         })),
-      ...customer.bookings
-        .filter((bk) => bk.payment)
-        .map((bk) => ({
-          type: "booking" as const,
-          bookingId: bk.bookingId,
-          roomNumber: bk.room.number,
-          amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee,
-          slipUrl: bk.payment?.slipUrl,
-          createdAt: bk.payment?.createdAt,
-        })),
+      // 👉 booking ไม่มี payment โดยตรง ดังนั้นถ้าจะใช้ slip ต้องใช้ booking.slipUrl แทน
+      ...customer.bookings.map((bk) => ({
+        type: "booking" as const,
+        bookingId: bk.bookingId,
+        roomNumber: bk.room.number,
+        amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee,
+        slipUrl: bk.slipUrl, // ✅ booking ใช้ slipUrl จาก model โดยตรง
+        createdAt: bk.createdAt,
+      })),
     ].sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
 
     res.json({ userId: customer.userId, payments });
