@@ -51,7 +51,7 @@ router.post(
             csurname,
             cphone,
             cmumId,
-            fullName: `${cname} ${csurname}`,
+            fullName: `${ctitle} ${cname} ${csurname}`,
           },
         });
       }
@@ -128,13 +128,8 @@ router.put("/:bookingId/checkout", async (req: Request, res: Response) => {
       where: { bookingId },
       data: {
         checkout: new Date(checkout),
-        status: 0, // คืนห้องแล้ว
+        returnStatus: 0, // คืนห้องแล้ว
       },
-    });
-
-    await prisma.room.update({
-      where: { roomId: booking.roomId },
-      data: { status: 0 },
     });
 
     await notifyUser(
