@@ -7,24 +7,25 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-// ✅ ใช้ memoryStorage (เก็บไฟล์ชั่วคราวใน RAM)
+// 📂 เก็บไฟล์ชั่วคราวใน RAM
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ✅ Supabase client
+// 📂 Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_KEY!
 );
+
+// 🔍 Debug ENV (ตอน start server จะเห็นใน console)
+console.log("✅ SUPABASE_URL:", process.env.SUPABASE_URL);
+console.log("✅ SUPABASE_BUCKET:", process.env.SUPABASE_BUCKET);
 
 // 📌 ดึงการจองทั้งหมด
 router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const bookings = await prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
-      include: {
-        room: true,
-        customer: true,
-      },
+      include: { room: true, customer: true },
     });
     res.json(bookings);
   } catch (err) {
@@ -52,24 +53,31 @@ router.post(
       } = req.body;
       const slipFile = req.file;
 
+      // 🔍 Debug
+      console.log("📥 Body:", req.body);
+      console.log("📎 File:", slipFile?.originalname);
+
       if (!userId || !roomId || !checkin) {
         return res.status(400).json({ error: "ข้อมูลไม่ครบ" });
       }
 
-      // ✅ Upload slip ไป Supabase ก่อน
+      // ✅ Upload slip ไป Supabase
       let finalSlipUrl = "";
       if (slipFile) {
         const filename = `slips/${Date.now()}_${slipFile.originalname}`;
-        const { error } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from(process.env.SUPABASE_BUCKET!)
           .upload(filename, slipFile.buffer, {
             contentType: slipFile.mimetype,
             upsert: true,
           });
 
-        if (error) {
-          console.error("❌ Supabase upload error:", error.message);
-          return res.status(500).json({ error: "อัปโหลดสลิปไม่สำเร็จ" });
+        if (uploadError) {
+          console.error("❌ Supabase upload error:", uploadError);
+          return res.status(500).json({
+            error: "อัปโหลดสลิปไม่สำเร็จ",
+            detail: uploadError.message,
+          });
         }
 
         const { data } = supabase.storage
@@ -77,25 +85,29 @@ router.post(
           .getPublicUrl(filename);
 
         finalSlipUrl = data.publicUrl;
+        console.log("✅ Uploaded URL:", finalSlipUrl);
       }
 
-      // ✅ Transaction: Customer ใหม่ + Booking
+      // ✅ Transaction: หา/สร้าง Customer + Booking
       const booking = await prisma.$transaction(async (tx) => {
-        // ➡️ สร้าง Customer ใหม่เสมอ
-        const customer = await tx.customer.create({
-          data: {
-            userId, // ❗ ถ้าอยากเก็บซ้ำ ต้องลบ @unique ออกจาก Prisma model
-            userName,
-            ctitle,
-            cname,
-            csurname,
-            fullName: `${ctitle} ${cname} ${csurname}`,
-            cphone,
-            cmumId,
-          },
-        });
+        // 🔍 หา Customer จาก userId ก่อน
+        let customer = await tx.customer.findFirst({ where: { userId } });
+        if (!customer) {
+          customer = await tx.customer.create({
+            data: {
+              userId,
+              userName,
+              ctitle,
+              cname,
+              csurname,
+              fullName: `${ctitle} ${cname} ${csurname}`,
+              cphone,
+              cmumId,
+            },
+          });
+        }
 
-        // ➡️ Booking ผูกกับ Customer ใหม่
+        // ➡️ Booking ใหม่
         return tx.booking.create({
           data: {
             roomId,
@@ -115,10 +127,14 @@ router.post(
       ห้อง : ${booking.room.number}\n
       https://smartdorm-frontend.onrender.com`;
       await notifyUser(process.env.ADMIN_LINE_ID!, Adminmsg);
+
       res.json({ message: "✅ จองสำเร็จ", booking });
-    } catch (err) {
+    } catch (err: any) {
       console.error("❌ Error create booking:", err);
-      res.status(500).json({ error: "ไม่สามารถจองห้องได้" });
+      res.status(500).json({
+        error: "ไม่สามารถจองห้องได้",
+        detail: err.message || err,
+      });
     }
   }
 );
