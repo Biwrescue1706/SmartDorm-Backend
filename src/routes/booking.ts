@@ -16,6 +16,23 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
+// 📌 ดึงการจองทั้งหมด
+router.get("/getall", async (_req: Request, res: Response) => {
+  try {
+    const bookings = await prisma.booking.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        room: true,
+        customer: true,
+      },
+    });
+    res.json(bookings);
+  } catch (err) {
+    console.error("❌ Error fetching bookings:", err);
+    res.status(500).json({ error: "ไม่สามารถดึงข้อมูลการจองได้" });
+  }
+});
+
 // 📝 User ขอจองห้อง
 router.post(
   "/create",
