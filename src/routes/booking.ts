@@ -16,21 +16,7 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
-// 📌 ดึงการจองทั้งหมด
-router.get("/getall", async (_req: Request, res: Response) => {
-  try {
-    const bookings = await prisma.booking.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { room: true, customer: true },
-    });
-    res.json(bookings);
-  } catch (err) {
-    console.error("❌ Error fetching bookings:", err);
-    res.status(500).json({ error: "ไม่สามารถดึงข้อมูลการจองได้" });
-  }
-});
-
-// 📝 User ขอจองห้อง (แนบ slip ได้)
+// 📝 User ขอจองห้อง
 router.post(
   "/create",
   upload.single("slip"),
@@ -38,14 +24,14 @@ router.post(
     try {
       const {
         userId,
-        ctitle,
         userName,
-        roomId,
-        checkin,
+        ctitle,
         cname,
         csurname,
         cphone,
         cmumId,
+        roomId,
+        checkin,
       } = req.body;
       const slipFile = req.file;
 
@@ -53,34 +39,10 @@ router.post(
         return res.status(400).json({ error: "ข้อมูลไม่ครบ" });
       }
 
-      // ✅ หา/สร้าง Customer
-      let customer = await prisma.customer.findFirst({ where: { userId } });
-      if (!customer) {
-        customer = await prisma.customer.create({
-          data: {
-            userId,
-            userName,
-            ctitle,
-            cname,
-            csurname,
-            cphone,
-            cmumId,
-            fullName: `${ctitle} ${cname} ${csurname}`,
-          },
-        });
-      }
-
-      // ✅ ตรวจสอบห้อง
-      const room = await prisma.room.findUnique({ where: { roomId } });
-      if (!room) return res.status(404).json({ error: "ไม่พบห้อง" });
-      if (room.status !== 0)
-        return res.status(400).json({ error: "ห้องไม่ว่าง" });
-
-      // ✅ อัปโหลด Slip → Supabase Storage
+      // ✅ Upload slip ไป Supabase ก่อน
       let finalSlipUrl = "";
       if (slipFile) {
         const filename = `slips/${Date.now()}_${slipFile.originalname}`;
-
         const { error } = await supabase.storage
           .from(process.env.SUPABASE_BUCKET!)
           .upload(filename, slipFile.buffer, {
@@ -100,27 +62,43 @@ router.post(
         finalSlipUrl = data.publicUrl;
       }
 
-      // ✅ สร้าง Booking
-      const booking = await prisma.booking.create({
-        data: {
-          customerId: customer.customerId,
-          roomId,
-          checkin: new Date(checkin),
-          slipUrl: finalSlipUrl,
-          status: 0, // 0 = รออนุมัติ
-        },
-        include: { customer: true, room: true },
+      // ✅ Transaction: Customer ใหม่ + Booking
+      const booking = await prisma.$transaction(async (tx) => {
+        // ➡️ สร้าง Customer ใหม่เสมอ
+        const customer = await tx.customer.create({
+          data: {
+            userId, // ❗ ถ้าอยากเก็บซ้ำ ต้องลบ @unique ออกจาก Prisma model
+            userName,
+            ctitle,
+            cname,
+            csurname,
+            fullName: `${ctitle} ${cname} ${csurname}`,
+            cphone,
+            cmumId,
+          },
+        });
+
+        // ➡️ Booking ผูกกับ Customer ใหม่
+        return tx.booking.create({
+          data: {
+            roomId,
+            customerId: customer.customerId,
+            checkin: new Date(checkin),
+            slipUrl: finalSlipUrl,
+            status: 0, // 0 = รออนุมัติ
+          },
+          include: { customer: true, room: true },
+        });
       });
 
-      // 📢 แจ้ง Admin group
+      // ✅ แจ้ง Admin ผ่าน LINE
       const Adminmsg = `📢 มีการส่งคำขอจองห้องใหม่ \n
-ชื่อ : ${customer.fullName} \n
-เบอร์โทร : ${customer.cphone} \n
-ห้อง : ${room.number}\n
-👉 https://smartdorm-frontend.onrender.com`;
+      ชื่อ : ${booking.customer.fullName} \n
+      เบอร์โทร : ${booking.customer.cphone} \n
+      ห้อง : ${booking.room.number}\n
+      https://smartdorm-frontend.onrender.com`;
       await notifyUser(process.env.ADMIN_LINE_ID!, Adminmsg);
-
-      res.json({ message: "✅ ส่งคำขอจองเรียบร้อย รอแอดมินอนุมัติ", booking });
+      res.json({ message: "✅ จองสำเร็จ", booking });
     } catch (err) {
       console.error("❌ Error create booking:", err);
       res.status(500).json({ error: "ไม่สามารถจองห้องได้" });
@@ -145,7 +123,10 @@ router.put("/:bookingId/approve", authMiddleware, async (req, res) => {
 
     const [updatedBooking] = await prisma.$transaction([
       prisma.booking.update({ where: { bookingId }, data: { status: 1 } }),
-      prisma.room.update({ where: { roomId: booking.roomId }, data: { status: 1 } }),
+      prisma.room.update({
+        where: { roomId: booking.roomId },
+        data: { status: 1 },
+      }),
     ]);
 
     // 📢 แจ้งไปยัง User
@@ -193,7 +174,8 @@ router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
 router.put("/:bookingId", authMiddleware, async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const { ctitle, cname, csurname, cmumId, cphone, checkin, status } = req.body;
+    const { ctitle, cname, csurname, cmumId, cphone, checkin, status } =
+      req.body;
 
     const booking = await prisma.booking.findUnique({
       where: { bookingId },

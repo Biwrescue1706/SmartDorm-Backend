@@ -43,7 +43,7 @@ model Room {
 
 model Customer {
   customerId String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String   @unique // LINE LIFF userId
+  userId     String  // LINE LIFF userId
   userName   String // LINE LIFF displayName
   ctitle     String // คำนำหน้าชื่อ
   cname      String //ชื่อ
@@ -62,11 +62,11 @@ model Booking {
   bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
   roomId       String    @db.ObjectId 
   customerId   String    @db.ObjectId
-  slipUrl      String?  //รูปสลิป แบบ Url
-  checkin      DateTime //การเข้าพัก
-  checkout     DateTime? //การออก
-  status       Int  // 0 = รออนุมัติ , 1 = อนุมัติการจอง , 2 = ไม่อนุมัติการจอง
-  returnStatus Int? // 0 = รออนุมัติ , 1 = อนุมัติการคืน , 2 = ไม่อนุมัติการคืน
+  slipUrl      String?  
+  checkin      DateTime 
+  checkout     DateTime?
+  status       Int  
+  returnStatus Int? 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
