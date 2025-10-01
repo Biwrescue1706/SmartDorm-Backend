@@ -131,9 +131,11 @@ router.post(
       res.json({ message: "✅ จองสำเร็จ", booking });
     } catch (err: any) {
       console.error("❌ Error create booking:", err);
+
+      // 🟢 ส่งข้อความ error จริงกลับไปด้วย
       res.status(500).json({
         error: "ไม่สามารถจองห้องได้",
-        detail: err.message || err,
+        detail: err.message || String(err),
       });
     }
   }
