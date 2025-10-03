@@ -16,7 +16,6 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
-// 🔍 Debug ENV (ตอน start server จะเห็นใน console)
 console.log("✅ SUPABASE_URL:", process.env.SUPABASE_URL);
 console.log("✅ SUPABASE_BUCKET:", process.env.SUPABASE_BUCKET);
 
@@ -53,7 +52,6 @@ router.post(
       } = req.body;
       const slipFile = req.file;
 
-      // 🔍 Debug
       console.log("📥 Body:", req.body);
       console.log("📎 File:", slipFile?.originalname);
 
@@ -88,9 +86,8 @@ router.post(
         console.log("✅ Uploaded URL:", finalSlipUrl);
       }
 
-      // ✅ Transaction: หา/สร้าง Customer + Booking
+      // ✅ Transaction: หา/สร้าง Customer + Booking + อัพเดท room.status=1
       const booking = await prisma.$transaction(async (tx) => {
-        // 🔍 หา Customer จาก userId ก่อน
         let customer = await tx.customer.findFirst({ where: { userId } });
         if (!customer) {
           customer = await tx.customer.create({
@@ -107,32 +104,38 @@ router.post(
           });
         }
 
-        // ➡️ Booking ใหม่
-        return tx.booking.create({
+        // สร้าง booking
+        const newBooking = await tx.booking.create({
           data: {
             roomId,
             customerId: customer.customerId,
             checkin: new Date(checkin),
             slipUrl: finalSlipUrl,
-            status: 0, // 0 = รออนุมัติ
+            status: 0, // รออนุมัติ
           },
           include: { customer: true, room: true },
         });
+
+        // อัปเดตสถานะห้อง
+        await tx.room.update({
+          where: { roomId },
+          data: { status: 1 },
+        });
+
+        return newBooking;
       });
 
       // ✅ แจ้ง Admin ผ่าน LINE
-      const Adminmsg = `📢 มีการส่งคำขอจองห้องใหม่ \n
-      ชื่อ : ${booking.customer.fullName} \n
-      เบอร์โทร : ${booking.customer.cphone} \n
-      ห้อง : ${booking.room.number}\n
-      https://smartdorm-frontend.onrender.com`;
+      const Adminmsg = `📢 มีการส่งคำขอจองห้องใหม่
+ชื่อ : ${booking.customer.fullName} 
+เบอร์โทร : ${booking.customer.cphone}
+ห้อง : ${booking.room.number}
+https://smartdorm-frontend.onrender.com`;
       await notifyUser(process.env.ADMIN_LINE_ID!, Adminmsg);
 
       res.json({ message: "✅ จองสำเร็จ", booking });
     } catch (err: any) {
       console.error("❌ Error create booking:", err);
-
-      // 🟢 ส่งข้อความ error จริงกลับไปด้วย
       res.status(500).json({
         error: "ไม่สามารถจองห้องได้",
         detail: err.message || String(err),
@@ -156,15 +159,13 @@ router.put("/:bookingId/approve", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "การจองนี้ถูกอนุมัติแล้ว" });
     }
 
-    const [updatedBooking] = await prisma.$transaction([
-      prisma.booking.update({ where: { bookingId }, data: { status: 1 } }),
-      prisma.room.update({
-        where: { roomId: booking.roomId },
-        data: { status: 1 },
-      }),
-    ]);
+    // ✅ อัปเดตแค่ booking.status
+    const updatedBooking = await prisma.booking.update({
+      where: { bookingId },
+      data: { status: 1 },
+      include: { customer: true, room: true },
+    });
 
-    // 📢 แจ้งไปยัง User
     await notifyUser(
       booking.customer.userId,
       `✅ การจองห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว`
@@ -188,10 +189,17 @@ router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
     });
     if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
 
-    const updatedBooking = await prisma.booking.update({
-      where: { bookingId },
-      data: { status: 2 }, // ปฏิเสธ
-    });
+    const [updatedBooking] = await prisma.$transaction([
+      prisma.booking.update({
+        where: { bookingId },
+        data: { status: 2 },
+        include: { customer: true, room: true },
+      }),
+      prisma.room.update({
+        where: { roomId: booking.roomId },
+        data: { status: 0 },
+      }),
+    ]);
 
     await notifyUser(
       booking.customer.userId,
@@ -218,6 +226,11 @@ router.put("/:bookingId", authMiddleware, async (req, res) => {
     });
     if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
 
+    // อัพเดท room.status ตาม booking.status
+    let roomStatus = booking.room.status;
+    if (status === 1) roomStatus = 1;
+    if (status === 2) roomStatus = 0;
+
     const updatedBooking = await prisma.booking.update({
       where: { bookingId },
       data: {
@@ -233,6 +246,7 @@ router.put("/:bookingId", authMiddleware, async (req, res) => {
             cphone,
           },
         },
+        room: { update: { status: roomStatus } },
       },
       include: { customer: true, room: true },
     });
@@ -252,7 +266,6 @@ router.delete("/:bookingId", authMiddleware, async (req, res) => {
     const booking = await prisma.booking.findUnique({ where: { bookingId } });
     if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
 
-    // คืนสถานะห้องเป็นว่าง
     await prisma.room.update({
       where: { roomId: booking.roomId },
       data: { status: 0 },

@@ -43,7 +43,7 @@ model Room {
 
 model Customer {
   customerId String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String  // LINE LIFF userId
+  userId     String // LINE LIFF userId
   userName   String // LINE LIFF displayName
   ctitle     String // คำนำหน้าชื่อ
   cname      String //ชื่อ
@@ -56,17 +56,18 @@ model Customer {
 
   bookings Booking[]
   bills    Bill[]
+  Payment  Payment[]
 }
 
 model Booking {
   bookingId    String    @id @default(auto()) @map("_id") @db.ObjectId
-  roomId       String    @db.ObjectId 
+  roomId       String    @db.ObjectId
   customerId   String    @db.ObjectId
-  slipUrl      String?  
-  checkin      DateTime 
+  slipUrl      String?
+  checkin      DateTime
   checkout     DateTime?
-  status       Int  
-  returnStatus Int? 
+  status       Int
+  returnStatus Int?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -113,11 +114,13 @@ model Bill {
 }
 
 model Payment {
-  paymentId String   @id @default(auto()) @map("_id") @db.ObjectId
-  billId    String   @unique @db.ObjectId // 👈 บังคับไม่ให้ซ้ำ (1 บิล = 1 Payment)
-  slipUrl   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  paymentId  String   @id @default(auto()) @map("_id") @db.ObjectId
+  billId     String   @unique @db.ObjectId
+  customerId String   @db.ObjectId
+  slipUrl    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  bill Bill @relation(fields: [billId], references: [billId])
+  bill     Bill     @relation(fields: [billId], references: [billId])
+  customer Customer @relation(fields: [customerId], references: [customerId])
 }

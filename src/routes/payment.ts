@@ -1,4 +1,3 @@
-// src/routes/payment.ts
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -67,30 +66,30 @@ router.post(
         return res.status(400).json({ error: "ต้องแนบสลิปการจ่าย" });
       }
 
-      // ✅ สร้าง Payment
-      const payment = await prisma.payment.create({
-        data: {
-          slipUrl,
-          billId,
-        },
-      });
-
-      // ✅ อัปเดตบิลเป็น pending (2)
-      await prisma.bill.update({
-        where: { billId },
-        data: { status: 2, slipUrl },
-      });
+      // ✅ Transaction → สร้าง Payment + update Bill
+      const [payment, updatedBill] = await prisma.$transaction([
+        prisma.payment.create({
+          data: {
+            slipUrl,
+            billId,
+            customerId: bill.customerId, // 👈 เก็บ customerId ด้วย
+          },
+        }),
+        prisma.bill.update({
+          where: { billId },
+          data: { status: 2, slipUrl }, // 2 = pending
+        }),
+      ]);
 
       // 🔔 Notify Admin
       const adminMsg = `📢 ผู้เช่า ${bill.customer.fullName} 
-      เบอร์โทร(${bill.customer.cphone}) 
-      ส่งสลิปชำระบิล ${bill.number} 
-      ห้อง ${bill.room.number} 
-      https://smartdorm-frontend.onrender.com
-      `;
+เบอร์โทร(${bill.customer.cphone}) 
+ส่งสลิปชำระบิล ${bill.number} 
+ห้อง ${bill.room.number} 
+https://smartdorm-frontend.onrender.com`;
       await notifyUser(process.env.ADMIN_LINE_ID!, adminMsg);
 
-      res.json({ message: "✅ ส่งสลิปสำเร็จ", payment });
+      res.json({ message: "✅ ส่งสลิปสำเร็จ", payment, bill: updatedBill });
     } catch (err) {
       console.error("❌ Error create payment:", err);
       res.status(500).json({ error: "ไม่สามารถบันทึกการจ่ายได้" });
@@ -105,6 +104,7 @@ router.put(
   async (req: Request, res: Response) => {
     try {
       const { paymentId } = req.params;
+      const adminId = (req as any).user?.adminId; // จาก middleware
 
       const payment = await prisma.payment.findUnique({
         where: { paymentId },
@@ -116,7 +116,7 @@ router.put(
       // ✅ อัปเดตบิล → ชำระแล้ว
       const updatedBill = await prisma.bill.update({
         where: { billId: payment.bill.billId },
-        data: { status: 1 },
+        data: { status: 1, updatedBy: adminId },
       });
 
       // 🔔 แจ้ง User
@@ -131,13 +131,14 @@ router.put(
   }
 );
 
-// ❌ Admin ยกเลิก/ปฏิเสธการจ่าย
+// ❌ Admin ปฏิเสธการจ่าย (soft reject)
 router.put(
   "/:paymentId/reject",
   authMiddleware,
   async (req: Request, res: Response) => {
     try {
       const { paymentId } = req.params;
+      const adminId = (req as any).user?.adminId;
 
       const payment = await prisma.payment.findUnique({
         where: { paymentId },
@@ -146,20 +147,27 @@ router.put(
       if (!payment || !payment.bill)
         return res.status(404).json({ error: "ไม่พบข้อมูลการจ่าย" });
 
-      // ✅ ลบ payment ออก
-      await prisma.payment.delete({ where: { paymentId } });
-
-      // ✅ อัปเดตบิลกลับไปยัง "ยังไม่ชำระ" (0)
-      const updatedBill = await prisma.bill.update({
-        where: { billId: payment.bill.billId },
-        data: { status: 0, slipUrl: "" },
-      });
+      // ✅ ใช้ transaction → update Payment + Bill
+      const [updatedPayment, updatedBill] = await prisma.$transaction([
+        prisma.payment.update({
+          where: { paymentId },
+          data: { slipUrl: payment.slipUrl }, // อาจเพิ่ม status ถ้ามี field
+        }),
+        prisma.bill.update({
+          where: { billId: payment.bill.billId },
+          data: { status: 0, slipUrl: "", updatedBy: adminId }, // กลับไปยังไม่ชำระ
+        }),
+      ]);
 
       // 🔔 แจ้ง User
       const Usermsg = `❌ การชำระบิล ห้อง${payment.bill.room.number} ไม่ผ่านการตรวจสอบ กรุณาติดต่อผู้ดูแล`;
       await notifyUser(payment.bill.customer.userId, Usermsg);
 
-      res.json({ message: "❌ ปฏิเสธการจ่ายแล้ว", bill: updatedBill });
+      res.json({
+        message: "❌ ปฏิเสธการจ่ายแล้ว",
+        payment: updatedPayment,
+        bill: updatedBill,
+      });
     } catch (err) {
       console.error("❌ Error reject payment:", err);
       res.status(500).json({ error: "ไม่สามารถปฏิเสธการจ่ายได้" });
@@ -168,7 +176,7 @@ router.put(
 );
 
 // 📌 Admin ดูการจ่ายทั้งหมด
-router.get("/getall", async (_req: Request, res: Response) => {
+router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
   try {
     const payments = await prisma.payment.findMany({
       orderBy: { createdAt: "desc" },
