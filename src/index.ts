@@ -11,7 +11,9 @@ const allowedOrigins = [
   "http://localhost:5173", // frontend dev
   "http://localhost:5174", // frontend dev
   "https://smartdorm-frontend.onrender.com", // frontend render
-  "https://smartdorm-bookingroom.onrender.com", // LIFF
+  "https://smartdorm-bookingroom.onrender.com",
+  "https://smartdorm-returnroom.onrender.com",
+  "https://smartdorm-paymentbill.onrender.com",
 ];
 
 const app = express();
