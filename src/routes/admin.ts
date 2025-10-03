@@ -69,8 +69,8 @@ router.post("/login", async (req: Request, res: Response) => {
     // ✅ เซ็ต cookie (cross-site)
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true,      // Render ใช้ HTTPS อยู่แล้ว
-      sameSite: "none",  // ต้องเป็น none ไม่งั้น Safari/iPad จะไม่ส่ง cookie
+      secure: true, // Render ใช้ HTTPS อยู่แล้ว
+      sameSite: "none", // ต้องเป็น none ไม่งั้น Safari/iPad จะไม่ส่ง cookie
     });
 
     res.json({ message: "✅ เข้าสู่ระบบสำเร็จ" });
@@ -167,15 +167,19 @@ router.put("/:adminId", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.delete("/:adminId", authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { adminId } = req.params;
-    await prisma.admin.delete({ where: { adminId } });
-    res.json({ message: "ลบ Admin สำเร็จ" });
-  } catch (err) {
-    console.error("❌ Delete Admin error:", err);
-    res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
+router.delete(
+  "/:adminId",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const { adminId } = req.params;
+      await prisma.admin.delete({ where: { adminId } });
+      res.json({ message: "ลบ Admin สำเร็จ" });
+    } catch (err) {
+      console.error("❌ Delete Admin error:", err);
+      res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
+    }
   }
-});
+);
 
 export default router;

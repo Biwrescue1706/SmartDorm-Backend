@@ -1,3 +1,4 @@
+// src/routes/room.ts
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -46,13 +47,14 @@ router.get("/:roomId", async (req: Request, res: Response) => {
   }
 });
 
-// ➕ เพิ่มห้อง
+//➕ เพิ่มห้อง (Admin)
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { number, size, rent, deposit, bookingFee } = req.body;
-    const adminId = (req as any).user?.adminId;
 
-    if (!adminId) return res.status(401).json({ error: "Unauthorized" });
+    if (!number || !size || !rent || !deposit || !bookingFee) {
+      return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
+    }
 
     const room = await prisma.room.create({
       data: {
@@ -61,8 +63,8 @@ router.post("/create", authMiddleware, async (req: Request, res: Response) => {
         rent: Number(rent),
         deposit: Number(deposit),
         bookingFee: Number(bookingFee),
-        status: 0,          // ✅ set default ว่าง
-        createdBy: adminId, // ✅ บังคับว่าต้องมีคนสร้าง
+        status: 0,
+        createdBy: req.admin!.adminId, // ✅ ใช้ FK ตรงนี้พอ
       },
       include: {
         adminCreated: { select: { adminId: true, username: true, name: true } },
@@ -76,25 +78,22 @@ router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-// ✏️ แก้ไขห้อง
+// ✏️ แก้ไขห้อง (Admin)
 router.put("/:roomId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { roomId } = req.params;
     const { number, size, rent, deposit, bookingFee, status } = req.body;
-    const adminId = (req as any).user?.adminId;
-
-    if (!adminId) return res.status(401).json({ error: "Unauthorized" });
 
     const updated = await prisma.room.update({
       where: { roomId },
       data: {
-        ...(number !== undefined && { number }),
-        ...(size !== undefined && { size }),
-        ...(rent !== undefined && { rent: Number(rent) }),
-        ...(deposit !== undefined && { deposit: Number(deposit) }),
-        ...(bookingFee !== undefined && { bookingFee: Number(bookingFee) }),
-        ...(status !== undefined && { status: Number(status) }),
-        updatedBy: adminId,
+        number,
+        size,
+        rent: rent ? Number(rent) : undefined,
+        deposit: deposit ? Number(deposit) : undefined,
+        bookingFee: bookingFee ? Number(bookingFee) : undefined,
+        status,
+        updatedBy: req.admin!.adminId, // ✅ เก็บ adminId ของแอดมินที่แก้ไข
       },
       include: {
         adminCreated: { select: { adminId: true, username: true, name: true } },
