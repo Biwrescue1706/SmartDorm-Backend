@@ -79,22 +79,31 @@ model Bill {
   billId    String   @id @default(auto()) @map("_id") @db.ObjectId
   number    String   @unique
   month     DateTime
-  rent      Int
-  service   Int
-  wBefore   Int
-  wAfter    Int
-  wUnits    Int
-  wPrice    Int
-  eBefore   Int
-  eAfter    Int
-  eUnits    Int
-  ePrice    Int
-  fine      Int
-  total     Int
-  slipUrl   String
-  status    Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  // ✅ ค่าต่าง ๆ
+  rent        Int      // ค่าเช่าห้อง (ดึงจาก Booking.Room)
+  service     Int      @default(20)// ค่าส่วนกลาง
+  wBefore     Int
+  wAfter      Int
+  wUnits      Int
+  wPrice      Int      @default(19)
+  waterCost   Int      @default(0) // ✅ ค่าน้ำรวม (wUnits * wPrice)
+  eBefore     Int
+  eAfter      Int
+  eUnits      Int
+  ePrice      Int      @default(7)
+  electricCost Int     @default(0) // ✅ ค่าไฟรวม (eUnits * ePrice)
+
+  fine        Int      @default(0) // ✅ ค่าปรับรวมทั้งหมด (overdueDays * 50)
+  overdueDays Int      @default(0) // ✅ จำนวนวันที่เกินกำหนด
+
+  total       Int      @default(0) // ✅ รวมยอดทั้งหมด rent + service + waterCost + electricCost + fine
+  slipUrl     String
+  status      Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
+  dueDate     DateTime             // ✅ วันครบกำหนด (วันที่ 5 ของเดือนถัดไป)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // FK -> Room
   roomId String @db.ObjectId

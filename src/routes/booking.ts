@@ -166,10 +166,10 @@ router.put("/:bookingId/approve", authMiddleware, async (req, res) => {
       include: { customer: true, room: true },
     });
 
-    await notifyUser(
-      booking.customer.userId,
-      `✅ การจองห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว`
-    );
+    const Usermsg = `✅ การจองห้อง ${booking.room.number}
+    ของ คุณ${booking.customer.userName} อนุมัติแล้ว
+    ขอบคุณที่ใช้บริการครับ😊`;
+    await notifyUser(booking.customer.userId, Usermsg);
 
     res.json({ message: "✅ อนุมัติการจองสำเร็จ", booking: updatedBooking });
   } catch (err) {
@@ -200,11 +200,10 @@ router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
         data: { status: 0 },
       }),
     ]);
-
-    await notifyUser(
-      booking.customer.userId,
-      `❌ การจองห้อง ${booking.room.number} ไม่ผ่านการอนุมัติ`
-    );
+    const Usermsg = `❌ การจองห้อง ${booking.room.number} ของ คุณ${booking.customer.userName} ถูกปฏิเสธ
+    หากมีข้อสงสัยกรุณาติดต่อผู้ดูแลระบบ
+    ขอบคุณที่ใช้บริการครับ😊`;
+    await notifyUser(booking.customer.userId, Usermsg);
 
     res.json({ message: "❌ ปฏิเสธการจองสำเร็จ", booking: updatedBooking });
   } catch (err) {

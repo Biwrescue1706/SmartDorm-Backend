@@ -27,7 +27,9 @@ router.get("/myBookings/:userId", async (req: Request, res: Response) => {
 
     const bookings = await prisma.booking.findMany({
       where: {
-        customer: { userId },
+        customer: {
+          is: { userId }, // ✅ ต้องใช้ is สำหรับ relation one-to-one
+        },
         status: 1, // 1 = อนุมัติแล้ว (active)
         checkout: null, // ยังไม่เคยขอคืน
       },
@@ -68,12 +70,14 @@ router.put("/:bookingId/checkout", async (req: Request, res: Response) => {
     });
 
     // 📢 แจ้ง Admin
-    const Adminmsg = `📢 ผู้เช่า
+    const Adminmsg = `📢 มีการส่งคำขอคืนห้องใหม่
 ชื่อ : ${booking.customer.fullName}
 เบอร์โทร : ${booking.customer.cphone}
 ขอคืนห้อง ${booking.room.number}
 https://smartdorm-frontend.onrender.com`;
-    await notifyUser(process.env.ADMIN_LINE_ID!, Adminmsg);
+    if (process.env.ADMIN_LINE_ID) {
+      await notifyUser(process.env.ADMIN_LINE_ID, Adminmsg);
+    }
 
     res.json({
       message: "✅ ขอคืนห้องสำเร็จ รอแอดมินอนุมัติ",
@@ -101,7 +105,9 @@ router.put("/:bookingId/approveCheckout", authMiddleware, async (req, res) => {
     }
 
     if (booking.status !== 1) {
-      return res.status(400).json({ error: "สถานะ booking ไม่สามารถคืนห้องได้" });
+      return res
+        .status(400)
+        .json({ error: "สถานะ booking ไม่สามารถคืนห้องได้" });
     }
 
     const [updatedBooking] = await prisma.$transaction([
@@ -120,9 +126,13 @@ router.put("/:bookingId/approveCheckout", authMiddleware, async (req, res) => {
     ]);
 
     // 📢 แจ้ง User
-    const Usermsg = `✅ การคืนห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว`;
-    await notifyUser(booking.customer.userId, Usermsg);
-
+    const Usermsg = `✅ การคืนห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว
+    ขอให้ ${booking.customer.userName } 
+    กรุณาส่งหมายเลขบัญชีเพื่อรับเงินมัดจำคืน
+    ขอบคุณที่ใช้บริการครับ😊`;
+    if (booking.customer.userId) {
+      await notifyUser(booking.customer.userId, Usermsg);
+    }
     res.json({
       message: "✅ อนุมัติการคืนห้องสำเร็จ",
       booking: updatedBooking,
@@ -151,8 +161,13 @@ router.put("/:bookingId/rejectCheckout", authMiddleware, async (req, res) => {
     });
 
     // 📢 แจ้ง User
-    const Usermsg = `❌ การคืนห้อง ${booking.room.number} ไม่ได้รับการอนุมัติ`;
-    await notifyUser(booking.customer.userId, Usermsg);
+    const Usermsg = `📢 การคืนห้อง ${booking.room.number} 
+    ของคุณ ${booking.customer.userName} ไม่ได้รับการอนุมัติ
+    กรุณาติดต่อผู้ดูแลระบบ
+    ขอบคุณที่ใช้บริการครับ😊`;
+    if (booking.customer.userId) {
+      await notifyUser(booking.customer.userId, Usermsg);
+    }
 
     res.json({ message: "❌ ปฏิเสธการคืนสำเร็จ", booking: updatedBooking });
   } catch (err) {
