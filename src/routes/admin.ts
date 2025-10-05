@@ -69,8 +69,9 @@ router.post("/login", async (req: Request, res: Response) => {
     // ✅ เซ็ต cookie (cross-site)
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true, // Render ใช้ HTTPS อยู่แล้ว
-      sameSite: "none", // ต้องเป็น none ไม่งั้น Safari/iPad จะไม่ส่ง cookie
+      secure: true, // ✅ Render ใช้ HTTPS แล้ว
+      sameSite: "none", // ✅ เพื่อให้ส่ง cookie ได้ข้ามโดเมน
+      maxAge: 60 * 60 * 1000, // ✅ อายุ 1 ชั่วโมง
     });
 
     res.json({ message: "✅ เข้าสู่ระบบสำเร็จ" });
