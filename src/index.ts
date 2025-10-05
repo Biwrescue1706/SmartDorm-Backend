@@ -33,6 +33,9 @@ const corsOptions: cors.CorsOptions = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 };
+
+app.set("trust proxy", 1); // ✅ จำเป็นมากใน Render
+
 app.use(cors(corsOptions));
 
 // ✅ ตอบ Preflight (OPTIONS)

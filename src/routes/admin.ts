@@ -72,6 +72,7 @@ router.post("/login", async (req: Request, res: Response) => {
       secure: true, // ✅ Render ใช้ HTTPS แล้ว
       sameSite: "none", // ✅ เพื่อให้ส่ง cookie ได้ข้ามโดเมน
       maxAge: 60 * 60 * 1000, // ✅ อายุ 1 ชั่วโมง
+      path: "/",
     });
 
     res.json({ message: "✅ เข้าสู่ระบบสำเร็จ" });
@@ -93,6 +94,7 @@ router.get("/logout", (req: Request, res: Response) => {
 
 // ---------------- VERIFY ----------------
 router.get("/verify", (req: Request, res: Response) => {
+  console.log("🍪 Incoming cookies:", req.cookies); // เพิ่มตรงนี้
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ error: "ไม่มี token" });
 
