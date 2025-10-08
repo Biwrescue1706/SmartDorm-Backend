@@ -1,12 +1,13 @@
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
-import { authMiddleware } from "../middleware/authMiddleware";
 import { notifyUser } from "../utils/lineNotify";
 
 const router = Router();
 
-// 📌 ดึงข้อมูลการคืนทั้งหมด (Admin)
-router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
+/* ======================================================
+   📌 ดึงข้อมูลการคืนทั้งหมด (Admin)
+====================================================== */
+router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const checkouts = await prisma.booking.findMany({
       where: { checkout: { not: null } },
@@ -20,23 +21,38 @@ router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
   }
 });
 
-// 📌 ผู้เช่าดึง booking ของตัวเอง (ที่สามารถขอคืนได้)
+/* ======================================================
+   📌 ผู้เช่าดึง booking ของตัวเอง (ที่สามารถขอคืนได้)
+====================================================== */
 router.get("/myBookings/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+    console.log("🧩 GET /checkout/myBookings => userId:", userId);
 
+    // ✅ ดึง customer จาก userId
+    const customer = await prisma.customer.findFirst({
+      where: { userId },
+    });
+
+    if (!customer) {
+      console.warn("⚠️ ไม่พบ customer สำหรับ userId:", userId);
+      return res.status(404).json({ error: "ไม่พบข้อมูลผู้ใช้ในระบบ" });
+    }
+
+    console.log("✅ พบ customer:", customer.customerId, customer.fullName);
+
+    // ✅ ใช้ customerId มาค้น booking
     const bookings = await prisma.booking.findMany({
       where: {
-        customer: {
-          is: { userId }, // ✅ ต้องใช้ is สำหรับ relation one-to-one
-        },
-        status: 1, // 1 = อนุมัติแล้ว (active)
+        customerId: customer.customerId,
+        status: 1, // 1 = อนุมัติแล้ว
         checkout: null, // ยังไม่เคยขอคืน
       },
       orderBy: { createdAt: "desc" },
       include: { room: true },
     });
 
+    console.log(`📦 พบ booking ${bookings.length} รายการของลูกค้า ${customer.fullName}`);
     res.json(bookings);
   } catch (err) {
     console.error("❌ Error fetching user bookings:", err);
@@ -44,7 +60,9 @@ router.get("/myBookings/:userId", async (req: Request, res: Response) => {
   }
 });
 
-// 🚪 ผู้เช่าขอคืนห้อง
+/* ======================================================
+   🚪 ผู้เช่าขอคืนห้อง
+====================================================== */
 router.put("/:bookingId/checkout", async (req: Request, res: Response) => {
   try {
     const { bookingId } = req.params;
@@ -89,8 +107,10 @@ https://smartdorm-frontend.onrender.com`;
   }
 });
 
-// ✅ Admin อนุมัติการคืนห้อง
-router.put("/:bookingId/approveCheckout", authMiddleware, async (req, res) => {
+/* ======================================================
+   ✅ Admin อนุมัติการคืนห้อง
+====================================================== */
+router.put("/:bookingId/approveCheckout", async (req, res) => {
   try {
     const { bookingId } = req.params;
 
@@ -105,9 +125,7 @@ router.put("/:bookingId/approveCheckout", authMiddleware, async (req, res) => {
     }
 
     if (booking.status !== 1) {
-      return res
-        .status(400)
-        .json({ error: "สถานะ booking ไม่สามารถคืนห้องได้" });
+      return res.status(400).json({ error: "สถานะ booking ไม่สามารถคืนห้องได้" });
     }
 
     const [updatedBooking] = await prisma.$transaction([
@@ -127,12 +145,14 @@ router.put("/:bookingId/approveCheckout", authMiddleware, async (req, res) => {
 
     // 📢 แจ้ง User
     const Usermsg = `✅ การคืนห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว
-    ขอให้ ${booking.customer.userName } 
-    กรุณาส่งหมายเลขบัญชีเพื่อรับเงินมัดจำคืน
-    ขอบคุณที่ใช้บริการครับ😊`;
+ขอให้ ${booking.customer.userName} 
+กรุณาส่งหมายเลขบัญชีเพื่อรับเงินมัดจำคืน
+ขอบคุณที่ใช้บริการครับ😊`;
+
     if (booking.customer.userId) {
       await notifyUser(booking.customer.userId, Usermsg);
     }
+
     res.json({
       message: "✅ อนุมัติการคืนห้องสำเร็จ",
       booking: updatedBooking,
@@ -143,8 +163,10 @@ router.put("/:bookingId/approveCheckout", authMiddleware, async (req, res) => {
   }
 });
 
-// ❌ Admin ปฏิเสธการคืนห้อง
-router.put("/:bookingId/rejectCheckout", authMiddleware, async (req, res) => {
+/* ======================================================
+   ❌ Admin ปฏิเสธการคืนห้อง
+====================================================== */
+router.put("/:bookingId/rejectCheckout", async (req, res) => {
   try {
     const { bookingId } = req.params;
 
@@ -162,9 +184,10 @@ router.put("/:bookingId/rejectCheckout", authMiddleware, async (req, res) => {
 
     // 📢 แจ้ง User
     const Usermsg = `📢 การคืนห้อง ${booking.room.number} 
-    ของคุณ ${booking.customer.userName} ไม่ได้รับการอนุมัติ
-    กรุณาติดต่อผู้ดูแลระบบ
-    ขอบคุณที่ใช้บริการครับ😊`;
+ของคุณ ${booking.customer.userName} ไม่ได้รับการอนุมัติ
+กรุณาติดต่อผู้ดูแลระบบ
+ขอบคุณที่ใช้บริการครับ😊`;
+
     if (booking.customer.userId) {
       await notifyUser(booking.customer.userId, Usermsg);
     }
@@ -176,8 +199,10 @@ router.put("/:bookingId/rejectCheckout", authMiddleware, async (req, res) => {
   }
 });
 
-// ✏️ Admin แก้ไขข้อมูลการคืน
-router.put("/:bookingId", authMiddleware, async (req, res) => {
+/* ======================================================
+   ✏️ Admin แก้ไขข้อมูลการคืน
+====================================================== */
+router.put("/:bookingId", async (req, res) => {
   try {
     const { bookingId } = req.params;
     const { checkout, returnStatus } = req.body;
@@ -207,8 +232,10 @@ router.put("/:bookingId", authMiddleware, async (req, res) => {
   }
 });
 
-// 🗑️ Admin ลบข้อมูลการคืน
-router.delete("/:bookingId", authMiddleware, async (req, res) => {
+/* ======================================================
+   🗑️ Admin ลบข้อมูลการคืน
+====================================================== */
+router.delete("/:bookingId", async (req, res) => {
   try {
     const { bookingId } = req.params;
 
@@ -220,7 +247,7 @@ router.delete("/:bookingId", authMiddleware, async (req, res) => {
       data: {
         checkout: null,
         returnStatus: null,
-        status: booking.status === 3 ? 1 : booking.status, // ถ้าเคยปิดแล้ว ให้กลับมาเป็น active
+        status: booking.status === 3 ? 1 : booking.status,
       },
     });
 

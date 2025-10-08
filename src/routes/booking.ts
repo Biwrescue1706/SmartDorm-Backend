@@ -166,19 +166,19 @@ router.put("/:bookingId/approve", authMiddleware, async (req, res) => {
       include: { customer: true, room: true },
     });
 
-    const Usermsg = `✅ การจองห้อง ${booking.room.number}
+    const Usermsg = ` การจองห้อง ${booking.room.number}
     ของ คุณ${booking.customer.userName} อนุมัติแล้ว
     ขอบคุณที่ใช้บริการครับ😊`;
     await notifyUser(booking.customer.userId, Usermsg);
 
-    res.json({ message: "✅ อนุมัติการจองสำเร็จ", booking: updatedBooking });
+    res.json({ message: " อนุมัติการจองสำเร็จ", booking: updatedBooking });
   } catch (err) {
     console.error("❌ Error approving booking:", err);
     res.status(500).json({ error: "ไม่สามารถอนุมัติการจองได้" });
   }
 });
 
-// ❌ Admin ปฏิเสธการจอง
+// Admin ปฏิเสธการจอง
 router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -200,14 +200,14 @@ router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
         data: { status: 0 },
       }),
     ]);
-    const Usermsg = `❌ การจองห้อง ${booking.room.number} ของ คุณ${booking.customer.userName} ถูกปฏิเสธ
+    const Usermsg = ` การจองห้อง ${booking.room.number} ของ คุณ${booking.customer.userName} ถูกปฏิเสธ
     หากมีข้อสงสัยกรุณาติดต่อผู้ดูแลระบบ
-    ขอบคุณที่ใช้บริการครับ😊`;
+    ขอบคุณที่ใช้บริการครับ`;
     await notifyUser(booking.customer.userId, Usermsg);
 
-    res.json({ message: "❌ ปฏิเสธการจองสำเร็จ", booking: updatedBooking });
+    res.json({ message: " ปฏิเสธการจองสำเร็จ", booking: updatedBooking });
   } catch (err) {
-    console.error("❌ Error rejecting booking:", err);
+    console.error("Error rejecting booking:", err);
     res.status(500).json({ error: "ไม่สามารถปฏิเสธการจองได้" });
   }
 });
