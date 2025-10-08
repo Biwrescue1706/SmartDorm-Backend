@@ -78,12 +78,15 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, async () => {
   try {
     await prisma.$connect();
-    console.log("Connected to MongoDB via Prisma");
+    console.log("✅ Connected to MongoDB via Prisma");
   } catch (err) {
-    console.error(" Prisma connection error:", err);
+    console.error("❌ Prisma connection error:", err);
     process.exit(1);
   }
-  console.log(` Server running on port ${PORT}`);
+  
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`🚀 Server running on port ${PORT}`);
+  }
 });
 
 process.on("SIGINT", async () => {
