@@ -26,7 +26,6 @@ async function createBill(
   },
   adminId: string
 ) {
-  // ✅ ตรวจสอบข้อมูลพื้นฐาน
   if (!roomId || !customerId || !month || !wAfter || !eAfter) {
     throw new Error("กรุณากรอกข้อมูลให้ครบถ้วน");
   }
@@ -39,7 +38,6 @@ async function createBill(
   const wPrice = 19;
   const ePrice = 7;
 
-  // ✅ ดึงบิลล่าสุดของห้อง (เดือนก่อนหน้า)
   const prevBill = await prisma.bill.findFirst({
     where: { roomId },
     orderBy: { createdAt: "desc" },
@@ -48,14 +46,12 @@ async function createBill(
   const finalWBefore = prevBill ? prevBill.wAfter : wBefore ?? 0;
   const finalEBefore = prevBill ? prevBill.eAfter : eBefore ?? 0;
 
-  // ✅ คำนวณ
   const wUnits = wAfter - finalWBefore;
   const eUnits = eAfter - finalEBefore;
   const waterCost = wUnits * wPrice;
   const electricCost = eUnits * ePrice;
 
   const createdAt = new Date();
-
   const dueDate = new Date(createdAt);
   dueDate.setMonth(dueDate.getMonth() + 1);
   dueDate.setDate(5);
@@ -63,6 +59,7 @@ async function createBill(
   let overdueDays = 0;
   let fine = 0;
   const today = new Date();
+
   if (today > dueDate) {
     const diff = today.getTime() - dueDate.getTime();
     overdueDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -70,10 +67,10 @@ async function createBill(
   }
 
   const total = rent + service + waterCost + electricCost + fine;
-
   const count = await prisma.bill.count({
     where: { month: new Date(month) },
   });
+
   const number = `BILL-${createdAt.getFullYear()}${String(
     createdAt.getMonth() + 1
   ).padStart(2, "0")}-${count + 1}`;
@@ -108,7 +105,6 @@ async function createBill(
     include: { room: true, customer: true },
   });
 
-  // 📢 แจ้งลูกค้าผ่าน LINE
   const msg = `📢 บิลใหม่ ห้อง: ${bill.room.number} มาแล้ว
 เดือน: ${bill.month.toLocaleDateString("th-TH", { year: "numeric", month: "long" })}
 ค่าเช่า: ${bill.rent.toLocaleString()} บาท
@@ -126,13 +122,12 @@ async function createBill(
   return bill;
 }
 
-// 🧾 Route สร้างบิลใหม่ (Admin เท่านั้น)
+// 🧾 สร้างบิลใหม่ (Admin เท่านั้น)
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   try {
     const bill = await createBill(req.body, req.admin!.adminId);
     res.json({ message: "✅ สร้างบิลสำเร็จและแจ้งลูกค้าแล้ว", bill });
   } catch (err: any) {
-    console.error("❌ Error creating bill:", err);
     res.status(500).json({ error: err.message || "ไม่สามารถสร้างบิลได้" });
   }
 });
@@ -167,7 +162,6 @@ router.post(
 
       res.json({ message: "✅ สร้างบิลสำเร็จและแจ้งลูกค้าแล้ว", bill });
     } catch (err: any) {
-      console.error("❌ Error createFromRoom:", err);
       res.status(500).json({ error: err.message || "ไม่สามารถสร้างบิลได้" });
     }
   }
@@ -181,8 +175,7 @@ router.get("/getall", authMiddleware, async (_req, res) => {
       include: { room: true, customer: true, payment: true },
     });
     res.json(bills);
-  } catch (err) {
-    console.error("❌ Error fetching bills:", err);
+  } catch {
     res.status(500).json({ error: "ไม่สามารถดึงบิลได้" });
   }
 });
@@ -197,8 +190,7 @@ router.get("/:billId", authMiddleware, async (req, res) => {
     });
     if (!bill) return res.status(404).json({ error: "ไม่พบบิล" });
     res.json(bill);
-  } catch (err) {
-    console.error("❌ Error fetching bill:", err);
+  } catch {
     res.status(500).json({ error: "ไม่สามารถดึงบิลได้" });
   }
 });
@@ -212,8 +204,7 @@ router.put("/:billId", authMiddleware, async (req, res) => {
       data: { ...req.body, updatedBy: req.admin!.adminId },
     });
     res.json({ message: "✅ อัปเดตบิลสำเร็จ", updated });
-  } catch (err) {
-    console.error("❌ Error updating bill:", err);
+  } catch {
     res.status(500).json({ error: "ไม่สามารถอัปเดตบิลได้" });
   }
 });
@@ -224,8 +215,7 @@ router.delete("/:billId", authMiddleware, async (req, res) => {
     const { billId } = req.params;
     await prisma.bill.delete({ where: { billId } });
     res.json({ message: "🗑️ ลบบิลสำเร็จ" });
-  } catch (err) {
-    console.error("❌ Error deleting bill:", err);
+  } catch {
     res.status(500).json({ error: "ไม่สามารถลบบิลได้" });
   }
 });

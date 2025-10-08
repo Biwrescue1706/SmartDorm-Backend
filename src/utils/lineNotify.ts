@@ -26,16 +26,12 @@ export async function notifyUser(to: string, message: string) {
     });
 
     if (!resp.ok) {
-      const errorText = await resp.text();
-      console.error("❌ LINE Messaging API error:", errorText);
       return null;
     }
 
     const result = await resp.json();
-    console.log("✅ LINE message sent:", result);
     return result;
   } catch (err) {
-    console.error("❌ LINE notify error:", err);
     return null;
   }
 }

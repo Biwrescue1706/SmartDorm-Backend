@@ -1,10 +1,11 @@
-// src/routes/user.ts
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 
 const router = Router();
 
-// 📝 สมัครหรืออัปเดต Customer ผ่าน LINE LIFF
+/* ======================================================
+   📝 สมัครหรืออัปเดต Customer ผ่าน LINE LIFF
+====================================================== */
 router.post("/register", async (req: Request, res: Response) => {
   try {
     const { userId, ctitle, userName, cmumId, cname, csurname, cphone } =
@@ -14,7 +15,6 @@ router.post("/register", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
     }
 
-    // ❌ findUnique ใช้ userId ไม่ได้ เพราะไม่ unique แล้ว
     let customer = await prisma.customer.findFirst({ where: { userId } });
 
     if (customer) {
@@ -46,13 +46,14 @@ router.post("/register", async (req: Request, res: Response) => {
     }
 
     res.json({ message: "✅ สมัคร/อัปเดต Customer สำเร็จ", customer });
-  } catch (err) {
-    console.error("❌ Error register customer:", err);
+  } catch {
     res.status(500).json({ error: "ไม่สามารถสมัคร Customer ได้" });
   }
 });
 
-// 📌 ดึงข้อมูล Customer + Bookings + Bills
+/* ======================================================
+   📌 ดึงข้อมูล Customer + Bookings + Bills
+====================================================== */
 router.get("/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -60,7 +61,7 @@ router.get("/:userId", async (req: Request, res: Response) => {
     const customer = await prisma.customer.findFirst({
       where: { userId },
       include: {
-        bookings: { include: { room: true } }, 
+        bookings: { include: { room: true } },
         bills: { include: { room: true, payment: true } },
       },
     });
@@ -68,13 +69,14 @@ router.get("/:userId", async (req: Request, res: Response) => {
     if (!customer) return res.status(404).json({ error: "ไม่พบ Customer" });
 
     res.json(customer);
-  } catch (err) {
-    console.error("❌ Error fetching customer:", err);
+  } catch {
     res.status(500).json({ error: "ไม่สามารถโหลดข้อมูล Customer ได้" });
   }
 });
 
-// 💰 ดูประวัติการจ่ายเงินของ Customer
+/* ======================================================
+   💰 ดูประวัติการจ่ายเงินของ Customer
+====================================================== */
 router.get("/:userId/payments", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -111,8 +113,7 @@ router.get("/:userId/payments", async (req: Request, res: Response) => {
     ].sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
 
     res.json({ userId: customer.userId, payments });
-  } catch (err) {
-    console.error("❌ Error fetching payments:", err);
+  } catch {
     res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลการจ่ายเงินได้" });
   }
 });

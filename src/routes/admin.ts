@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import prisma from "../prisma";
 import { Router, Request, Response } from "express";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -7,6 +6,8 @@ import { authMiddleware } from "../middleware/authMiddleware";
 const router = Router();
 
 // ---------------- ADMIN CRUD ----------------
+
+// 📌 ดึงข้อมูลแอดมินทั้งหมด
 router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
   try {
     const admins = await prisma.admin.findMany({
@@ -19,15 +20,16 @@ router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
       },
     });
     res.json(admins);
-  } catch (err) {
-    console.error(" GetAll Admin error:", err);
+  } catch {
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
   }
 });
 
+// 📌 ดึงข้อมูลแอดมินตาม ID
 router.get("/:adminId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { adminId } = req.params;
+
     const admin = await prisma.admin.findUnique({
       where: { adminId },
       select: {
@@ -39,50 +41,47 @@ router.get("/:adminId", authMiddleware, async (req: Request, res: Response) => {
       },
     });
 
-    if (!admin) return res.status(404).json({ error: "ไม่พบ Admin" });
+    if (!admin) {
+      return res.status(404).json({ error: "ไม่พบข้อมูลผู้ดูแลระบบ" });
+    }
 
     res.json(admin);
-  } catch (err) {
-    console.error(" Get Admin error:", err);
+  } catch {
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
   }
 });
 
+// 📌 แก้ไขข้อมูลแอดมิน
 router.put("/:adminId", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { adminId } = req.params;
     const { username, name, password } = req.body;
 
-    const setPayload: any = {};
-    if (username) setPayload.username = username.trim();
-    if (name) setPayload.name = name.trim();
-    if (password) setPayload.password = await bcrypt.hash(password, 10);
+    const dataToUpdate: Record<string, any> = {};
+    if (username) dataToUpdate.username = username.trim();
+    if (name) dataToUpdate.name = name.trim();
+    if (password) dataToUpdate.password = await bcrypt.hash(password, 10);
 
     const updated = await prisma.admin.update({
       where: { adminId },
-      data: setPayload,
+      data: dataToUpdate,
     });
 
-    res.json({ message: "อัปเดต Admin สำเร็จ", updated });
-  } catch (err) {
-    console.error(" Update Admin error:", err);
-    res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัปเดต Admin" });
+    res.json({ message: "อัปเดตข้อมูลผู้ดูแลระบบสำเร็จ", updated });
+  } catch {
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล" });
   }
 });
 
-router.delete(
-  "/:adminId",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const { adminId } = req.params;
-      await prisma.admin.delete({ where: { adminId } });
-      res.json({ message: "ลบ Admin สำเร็จ" });
-    } catch (err) {
-      console.error(" Delete Admin error:", err);
-      res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบ Admin" });
-    }
+// 📌 ลบแอดมิน
+router.delete("/:adminId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { adminId } = req.params;
+    await prisma.admin.delete({ where: { adminId } });
+    res.json({ message: "ลบผู้ดูแลระบบสำเร็จ" });
+  } catch {
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบข้อมูล" });
   }
-);
+});
 
 export default router;
