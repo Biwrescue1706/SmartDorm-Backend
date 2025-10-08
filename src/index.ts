@@ -7,7 +7,10 @@ import prisma from "./prisma";
 
 dotenv.config();
 
-// ✅ เพิ่ม frontend render origin
+const app = express();
+app.set("trust proxy", 1); // ✅ จำเป็นเมื่อ deploy บน Render / Cloudflare
+
+// ✅ กำหนด Origin ที่อนุญาต
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -17,20 +20,15 @@ const allowedOrigins = [
   "https://smartdorm-returnroom.onrender.com",
   "https://smartdorm-paymentbill.onrender.com",
 
-  // ✅ เพิ่ม RegExp สำหรับ iPad (local development)
+  // ✅ รองรับการเข้าจากเครือข่ายภายใน (เช่น iPad)
   /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/,
   /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/,
   /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}:\d+$/,
 ];
 
-const app = express();
-
-app.set("trust proxy", 1);
-
-// ✅ CORS Middleware (รองรับทั้ง string และ RegExp)
+// ✅ ตั้งค่า CORS เบื้องต้น
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // ✅ Log ทุก request เพื่อ debug
     console.log("📍 Incoming request from origin:", origin);
 
     if (!origin) {
@@ -38,38 +36,63 @@ const corsOptions: cors.CorsOptions = {
       return callback(null, true);
     }
 
-    // ✅ เช็คทั้ง string และ RegExp
-    const isAllowed = allowedOrigins.some((allowed) => {
-      if (typeof allowed === "string") {
-        return allowed === origin;
-      } else if (allowed instanceof RegExp) {
-        return allowed.test(origin);
-      }
-      return false;
-    });
+    const isAllowed = allowedOrigins.some((allowed) =>
+      typeof allowed === "string"
+        ? allowed === origin
+        : allowed instanceof RegExp && allowed.test(origin)
+    );
 
     if (isAllowed) {
       console.log("✅ Origin allowed:", origin);
       callback(null, true);
     } else {
       console.warn("❌ Blocked by CORS:", origin);
-      callback(new Error("❌ CORS not allowed"));
+      callback(new Error("CORS not allowed"));
     }
   },
-  credentials: true,
+  credentials: true, // ✅ จำเป็นเพื่อให้ cookie ทำงาน
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: [
+    "Origin",
+    "X-Requested-With",
+    "Content-Type",
+    "Accept",
+    "Authorization",
+  ],
   exposedHeaders: ["Set-Cookie"],
 };
 
 app.use(cors(corsOptions));
-// ✅ ไม่ต้องใช้ app.options() เพราะ cors middleware จัดการให้แล้ว
-
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ เพิ่ม middleware เพื่อ debug cookies
+// ✅ เพิ่ม middleware นี้เพื่อบังคับใส่ header ทุก response
+// (ช่วยปลดล็อก CORS/Cookie เมื่อ proxy เช่น Render/Cloudflare ตัด header ออก)
 app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+
+  const origin = req.headers.origin;
+  if (
+    origin &&
+    allowedOrigins.some((allowed) =>
+      typeof allowed === "string"
+        ? allowed === origin
+        : allowed instanceof RegExp && allowed.test(origin)
+    )
+  ) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+
+  res.header("Access-Control-Expose-Headers", "Set-Cookie");
+  next();
+});
+
+// ✅ Debug cookies ทุก request
+app.use((req, _res, next) => {
   console.log("🍪 Cookies:", req.cookies);
   console.log("📍 Path:", req.path);
   console.log("📍 Method:", req.method);
@@ -106,13 +129,7 @@ app.get("/", (_req, res) => {
 app.get("/test-db", async (_req, res) => {
   try {
     const admins = await prisma.admin.findMany({
-      select: {
-        adminId: true,
-        username: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: { adminId: true, username: true, name: true, createdAt: true },
     });
     res.json(admins);
   } catch (err: any) {
@@ -154,7 +171,7 @@ app.listen(PORT, async () => {
   console.log("✅ Allowed origins:", allowedOrigins);
 });
 
-// ✅ Disconnect Prisma เมื่อ server ถูก kill
+// ✅ ปิดการเชื่อมต่อ Prisma อย่างปลอดภัยเมื่อหยุด server
 process.on("SIGINT", async () => {
   await prisma.$disconnect();
   console.log("🛑 Prisma disconnected (SIGINT)");
