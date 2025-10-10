@@ -9,12 +9,14 @@ datasource db {
 
 model Admin {
   adminId   String   @id @default(auto()) @map("_id") @db.ObjectId
-  username  String   @unique //username
-  name      String //ชื่อแอดมิน
-  password  String //รหัสผ่าน
+  username  String   @unique // ชื่อผู้ใช้
+  name      String // ชื่อจริง
+  password  String // รหัสผ่าน
+  role      Int      @default(1) // ✅ 0 = แอดมินหลัก, 1 = พนักงาน
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ความสัมพันธ์กับ Room / Bill
   roomsCreated Room[] @relation("RoomCreatedBy")
   roomsUpdated Room[] @relation("RoomUpdatedBy")
   billsCreated Bill[] @relation("BillCreatedBy")
@@ -34,9 +36,11 @@ model Room {
   updatedAt  DateTime @updatedAt
   updatedBy  String?  @db.ObjectId //แก้ไขโดยใคร
 
+  // ความสัมพันธ์กับแอดมิน
   adminCreated Admin? @relation("RoomCreatedBy", fields: [createdBy], references: [adminId])
   adminUpdated Admin? @relation("RoomUpdatedBy", fields: [updatedBy], references: [adminId])
 
+  // ความสัมพันธ์กับ Booking / Bill
   bookings Booking[]
   bills    Bill[]
 }
@@ -66,7 +70,7 @@ model Booking {
   slipUrl      String?
   checkin      DateTime
   checkout     DateTime?
-  status       Int
+  status       Int  // 0=รอ, 1=เข้าพัก, 2=คืน
   returnStatus Int?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -76,34 +80,34 @@ model Booking {
 }
 
 model Bill {
-  billId    String   @id @default(auto()) @map("_id") @db.ObjectId
-  number    String   @unique
-  month     DateTime
+  billId String   @id @default(auto()) @map("_id") @db.ObjectId
+  number String   @unique
+  month  DateTime
 
   // ✅ ค่าต่าง ๆ
-  rent        Int      // ค่าเช่าห้อง (ดึงจาก Booking.Room)
-  service     Int      @default(20)// ค่าส่วนกลาง
-  wBefore     Int
-  wAfter      Int
-  wUnits      Int
-  wPrice      Int      @default(19)
-  waterCost   Int      @default(0) // ✅ ค่าน้ำรวม (wUnits * wPrice)
-  eBefore     Int
-  eAfter      Int
-  eUnits      Int
-  ePrice      Int      @default(7)
-  electricCost Int     @default(0) // ✅ ค่าไฟรวม (eUnits * ePrice)
+  rent         Int // ค่าเช่าห้อง (ดึงจาก Booking.Room)
+  service      Int @default(20) // ค่าส่วนกลาง
+  wBefore      Int
+  wAfter       Int
+  wUnits       Int
+  wPrice       Int @default(19)
+  waterCost    Int @default(0) // ✅ ค่าน้ำรวม (wUnits * wPrice)
+  eBefore      Int
+  eAfter       Int
+  eUnits       Int
+  ePrice       Int @default(7)
+  electricCost Int @default(0) // ✅ ค่าไฟรวม (eUnits * ePrice)
 
-  fine        Int      @default(0) // ✅ ค่าปรับรวมทั้งหมด (overdueDays * 50)
-  overdueDays Int      @default(0) // ✅ จำนวนวันที่เกินกำหนด
+  fine        Int @default(0) // ✅ ค่าปรับรวมทั้งหมด (overdueDays * 50)
+  overdueDays Int @default(0) // ✅ จำนวนวันที่เกินกำหนด
 
-  total       Int      @default(0) // ✅ รวมยอดทั้งหมด rent + service + waterCost + electricCost + fine
-  slipUrl     String
-  status      Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
-  dueDate     DateTime             // ✅ วันครบกำหนด (วันที่ 5 ของเดือนถัดไป)
+  total   Int      @default(0) // ✅ รวมยอดทั้งหมด rent + service + waterCost + electricCost + fine
+  slipUrl String
+  status  Int      @default(0) // 0=ยังไม่ชำระ, 1=ชำระแล้ว
+  dueDate DateTime // ✅ วันครบกำหนด (วันที่ 5 ของเดือนถัดไป)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // FK -> Room
   roomId String @db.ObjectId

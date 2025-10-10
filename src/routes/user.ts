@@ -1,19 +1,40 @@
+// src/routes/user.ts
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
+import fetch from "node-fetch";
 
 const router = Router();
 
-/* ======================================================
-   📝 สมัครหรืออัปเดต Customer ผ่าน LINE LIFF
-====================================================== */
+// ตรวจสอบ token กับ LINE API
+async function verifyLineToken(accessToken: string): Promise<{
+  userId: string;
+  displayName: string;
+  pictureUrl?: string;
+}> {
+  const res = await fetch("https://api.line.me/v2/profile", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error("LINE token ไม่ถูกต้องหรือหมดอายุ");
+
+  // ✅ Cast type ของผลลัพธ์ที่ได้จาก res.json()
+  return (await res.json()) as {
+    userId: string;
+    displayName: string;
+    pictureUrl?: string;
+  };
+}
+
+// สมัครหรืออัปเดตข้อมูลลูกค้า
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { userId, ctitle, userName, cmumId, cname, csurname, cphone } =
-      req.body;
+    const { accessToken, ctitle, cname, csurname, cphone, cmumId } = req.body;
+    if (!accessToken)
+      return res.status(401).json({ error: "ไม่มี accessToken จาก LINE LIFF" });
 
-    if (!userId || !ctitle || !userName || !cname || !cphone) {
+    const { userId, displayName } = await verifyLineToken(accessToken);
+
+    if (!ctitle || !cname || !cphone)
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
-    }
 
     let customer = await prisma.customer.findFirst({ where: { userId } });
 
@@ -21,12 +42,12 @@ router.post("/register", async (req: Request, res: Response) => {
       customer = await prisma.customer.update({
         where: { customerId: customer.customerId },
         data: {
-          userName,
-          cmumId,
+          userName: displayName,
           ctitle,
           cname,
           csurname,
           cphone,
+          cmumId,
           fullName: `${ctitle}${cname} ${csurname}`,
         },
       });
@@ -34,29 +55,32 @@ router.post("/register", async (req: Request, res: Response) => {
       customer = await prisma.customer.create({
         data: {
           userId,
-          userName,
+          userName: displayName,
           ctitle,
-          cmumId,
           cname,
           csurname,
           cphone,
+          cmumId,
           fullName: `${ctitle}${cname} ${csurname}`,
         },
       });
     }
 
-    res.json({ message: "✅ สมัคร/อัปเดต Customer สำเร็จ", customer });
-  } catch {
-    res.status(500).json({ error: "ไม่สามารถสมัคร Customer ได้" });
+    res.json({ message: "สมัครหรืออัปเดตข้อมูลสำเร็จ", customer });
+  } catch (err) {
+    console.error("Customer register error:", err);
+    res.status(500).json({ error: "ไม่สามารถสมัครหรืออัปเดตข้อมูลได้" });
   }
 });
 
-/* ======================================================
-   📌 ดึงข้อมูล Customer + Bookings + Bills
-====================================================== */
-router.get("/:userId", async (req: Request, res: Response) => {
+// ดึงข้อมูลลูกค้าพร้อม booking และ bill
+router.post("/me", async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    const { accessToken } = req.body;
+    if (!accessToken)
+      return res.status(401).json({ error: "ไม่มี accessToken" });
+
+    const { userId } = await verifyLineToken(accessToken);
 
     const customer = await prisma.customer.findFirst({
       where: { userId },
@@ -66,55 +90,104 @@ router.get("/:userId", async (req: Request, res: Response) => {
       },
     });
 
-    if (!customer) return res.status(404).json({ error: "ไม่พบ Customer" });
+    if (!customer) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
 
     res.json(customer);
-  } catch {
-    res.status(500).json({ error: "ไม่สามารถโหลดข้อมูล Customer ได้" });
+  } catch (err) {
+    console.error("Customer fetch error:", err);
+    res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลได้" });
   }
 });
 
-/* ======================================================
-   💰 ดูประวัติการจ่ายเงินของ Customer
-====================================================== */
-router.get("/:userId/payments", async (req: Request, res: Response) => {
+// ดึงรายการบิลที่ชำระแล้ว
+router.post("/payments", async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    const { accessToken } = req.body;
+    if (!accessToken)
+      return res.status(401).json({ error: "ไม่มี accessToken จาก LINE LIFF" });
 
-    const customer = await prisma.customer.findFirst({
-      where: { userId },
-      include: {
-        bills: { include: { payment: true, room: true } },
-        bookings: { include: { room: true } },
-      },
+    const { userId } = await verifyLineToken(accessToken);
+    const customer = await prisma.customer.findFirst({ where: { userId } });
+    if (!customer) return res.status(404).json({ error: "ไม่พบลูกค้า" });
+
+    const paidBills = await prisma.bill.findMany({
+      where: { customerId: customer.customerId, status: 1 },
+      orderBy: { createdAt: "desc" },
+      include: { room: true, payment: true },
     });
 
-    if (!customer) return res.status(404).json({ error: "ไม่พบ Customer" });
+    const result = paidBills.map((b) => ({
+      billNumber: b.number,
+      roomNumber: b.room.number,
+      total: b.total,
+      slipUrl: b.payment?.slipUrl,
+      paidAt: b.payment?.createdAt,
+    }));
 
-    const payments = [
-      ...customer.bills
-        .filter((b: any) => b.payment)
-        .map((b: any) => ({
-          type: "bill" as const,
-          billNumber: b.number,
-          roomNumber: b.room.number,
-          amount: b.total,
-          slipUrl: b.payment?.slipUrl,
-          createdAt: b.payment?.createdAt,
-        })),
-      ...customer.bookings.map((bk: any) => ({
-        type: "booking" as const,
-        bookingId: bk.bookingId,
-        roomNumber: bk.room.number,
-        amount: bk.room.rent + bk.room.deposit + bk.room.bookingFee,
-        slipUrl: bk.slipUrl,
-        createdAt: bk.createdAt,
-      })),
-    ].sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
+    res.json({
+      message: "ดึงรายการบิลที่ชำระแล้วสำเร็จ",
+      count: result.length,
+      bills: result,
+    });
+  } catch (err) {
+    console.error("Paid bills fetch error:", err);
+    res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลบิลที่ชำระแล้วได้" });
+  }
+});
 
-    res.json({ userId: customer.userId, payments });
-  } catch {
-    res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลการจ่ายเงินได้" });
+// ดึงรายการบิลที่ยังไม่ชำระ
+router.post("/bills/unpaid", async (req: Request, res: Response) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken)
+      return res.status(401).json({ error: "ไม่มี accessToken จาก LINE LIFF" });
+
+    const { userId } = await verifyLineToken(accessToken);
+    const customer = await prisma.customer.findFirst({ where: { userId } });
+    if (!customer) return res.status(404).json({ error: "ไม่พบลูกค้า" });
+
+    const bills = await prisma.bill.findMany({
+      where: { customerId: customer.customerId, status: 0 },
+      orderBy: { createdAt: "desc" },
+      include: { room: true },
+    });
+
+    res.json({
+      message: "ดึงรายการบิลที่ยังไม่ชำระสำเร็จ",
+      count: bills.length,
+      bills,
+    });
+  } catch (err) {
+    console.error("Unpaid bills error:", err);
+    res.status(500).json({ error: "ไม่สามารถโหลดบิลที่ยังไม่ชำระได้" });
+  }
+});
+
+// ดึงรายการห้องที่สามารถคืนได้
+router.post("/bookings/returnable", async (req: Request, res: Response) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken)
+      return res.status(401).json({ error: "ไม่มี accessToken จาก LINE LIFF" });
+
+    const { userId } = await verifyLineToken(accessToken);
+    const customer = await prisma.customer.findFirst({ where: { userId } });
+    if (!customer) return res.status(404).json({ error: "ไม่พบลูกค้า" });
+
+    const bookings = await prisma.booking.findMany({
+      where: { customerId: customer.customerId, status: 1 },
+      include: { room: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json({
+      message: "ดึงรายการที่สามารถคืนได้สำเร็จ",
+      count: bookings.length,
+      bookings,
+    });
+  } catch (err) {
+    console.error("Returnable bookings error:", err);
+    res.status(500).json({ error: "ไม่สามารถโหลดรายการที่คืนได้" });
   }
 });
 

@@ -43,8 +43,8 @@ async function createBill(
     orderBy: { createdAt: "desc" },
   });
 
-  const finalWBefore = prevBill ? prevBill.wAfter : wBefore ?? 0;
-  const finalEBefore = prevBill ? prevBill.eAfter : eBefore ?? 0;
+  const finalWBefore = prevBill ? prevBill.wAfter : (wBefore ?? 0);
+  const finalEBefore = prevBill ? prevBill.eAfter : (eBefore ?? 0);
 
   const wUnits = wAfter - finalWBefore;
   const eUnits = eAfter - finalEBefore;
@@ -111,9 +111,9 @@ async function createBill(
 ค่าส่วนกลาง: ${bill.service.toLocaleString()} บาท
 ค่าน้ำ: ${bill.wUnits} หน่วย (${bill.waterCost.toLocaleString()} บาท)
 ค่าไฟ: ${bill.eUnits} หน่วย (${bill.electricCost.toLocaleString()} บาท)
-ยอดรวมทั้งหมด: 💰 ${bill.total.toLocaleString()} บาท
+ยอดรวมทั้งหมด: ${bill.total.toLocaleString()} บาท
 ครบกำหนดชำระ: ${bill.dueDate.toLocaleDateString("th-TH")}
-ขอบคุณที่ใช้บริการ SmartDorm 🙏`;
+ขอบคุณที่ใช้บริการ SmartDorm `;
 
   if (bill.customer.userId) {
     await notifyUser(bill.customer.userId, msg);

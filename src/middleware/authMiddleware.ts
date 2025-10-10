@@ -7,7 +7,7 @@ if (!JWT_SECRET) {
   throw new Error("❌ JWT_SECRET must be defined in .env file");
 }
 
-// ✅ กำหนด type ให้ req รองรับ admin
+// ✅ เพิ่ม role เข้าใน type ของ req.admin
 declare global {
   namespace Express {
     interface Request {
@@ -15,16 +15,14 @@ declare global {
         adminId: string;
         username: string;
         name: string;
+        role: number; // ✅ เพิ่ม role
       };
     }
   }
 }
 
-export function authMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+// ✅ ตรวจสอบว่ามี token และถูกต้องหรือไม่
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const token =
     req.cookies?.token ||
     (req.headers.authorization?.startsWith("Bearer ")
@@ -36,7 +34,6 @@ export function authMiddleware(
   }
 
   try {
-    // ✅ บังคับใช้ HS256
     const decoded = jwt.verify(token, JWT_SECRET, {
       algorithms: ["HS256"],
     }) as jwt.JwtPayload;
@@ -45,6 +42,7 @@ export function authMiddleware(
       adminId: decoded.adminId,
       username: decoded.username,
       name: decoded.name,
+      role: decoded.role, // ✅ เพิ่ม role
     };
 
     next();
@@ -52,4 +50,19 @@ export function authMiddleware(
     console.error("❌ Token verification failed:", err.message);
     return res.status(401).json({ error: "Token ไม่ถูกต้องหรือหมดอายุ" });
   }
+}
+
+// ✅ Middleware ตรวจ role เฉพาะ
+export function roleMiddleware(requiredRole: number) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.admin) {
+      return res.status(401).json({ error: "ยังไม่ได้เข้าสู่ระบบ" });
+    }
+
+    if (req.admin.role !== requiredRole) {
+      return res.status(403).json({ error: "ไม่มีสิทธิ์เข้าถึงส่วนนี้" });
+    }
+
+    next();
+  };
 }
