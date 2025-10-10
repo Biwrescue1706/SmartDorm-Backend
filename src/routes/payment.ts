@@ -4,10 +4,11 @@ import { authMiddleware } from "../middleware/authMiddleware";
 import { notifyUser } from "../utils/lineNotify";
 import multer from "multer";
 import { createClient } from "@supabase/supabase-js";
+import fetch from "node-fetch";
 
 const router = Router();
 
-// ✅ ใช้ memoryStorage (เก็บใน RAM ชั่วคราว)
+// ✅ Memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ✅ Init Supabase
@@ -16,52 +17,80 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
-/* ======================================================
-   📤 ผู้เช่าส่งสลิปการจ่ายบิล
-====================================================== */
+// ✅ ตรวจสอบ token กับ LINE API
+async function verifyLineToken(accessToken: string): Promise<{
+  userId: string;
+  displayName: string;
+  pictureUrl?: string;
+}> {
+  const res = await fetch("https://api.line.me/v2/profile", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error("LINE token ไม่ถูกต้องหรือหมดอายุ");
+  return (await res.json()) as {
+    userId: string;
+    displayName: string;
+    pictureUrl?: string;
+  };
+}
+
+// 📤 ผู้เช่าส่งสลิปการจ่ายบิล (ยืนยันผ่าน LINE accessToken)
 router.post(
   "/create",
   upload.single("slip"),
   async (req: Request, res: Response) => {
     try {
-      const { billId } = req.body;
+      const { billId, accessToken } = req.body;
       const slipFile = req.file;
 
+      if (!accessToken)
+        return res
+          .status(401)
+          .json({ error: "ไม่มี accessToken จาก LINE LIFF" });
+      if (!slipFile)
+        return res.status(400).json({ error: "ต้องแนบสลิปการจ่าย" });
+
+      // ✅ ตรวจสอบ token และดึง userId
+      const { userId } = await verifyLineToken(accessToken);
+      const customer = await prisma.customer.findFirst({ where: { userId } });
+      if (!customer)
+        return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+      // ✅ ตรวจสอบว่า bill เป็นของลูกค้าคนนี้จริงไหม
       const bill = await prisma.bill.findUnique({
         where: { billId },
         include: { customer: true, room: true },
       });
 
       if (!bill) return res.status(404).json({ error: "ไม่พบบิล" });
+      if (bill.customerId !== customer.customerId)
+        return res
+          .status(403)
+          .json({ error: "ไม่มีสิทธิ์ส่งสลิปสำหรับบิลนี้" });
       if (bill.status === 1)
         return res.status(400).json({ error: "บิลนี้ชำระแล้ว" });
       if (bill.status === 2)
         return res.status(400).json({ error: "บิลนี้กำลังรอตรวจสอบ" });
 
       // ✅ อัปโหลด Slip ไป Supabase
-      let slipUrl = "";
-      if (slipFile) {
-        const filename = `${Date.now()}_${slipFile.originalname}`;
+      const filename = `${Date.now()}_${slipFile.originalname}`;
+      const { error } = await supabase.storage
+        .from(process.env.SUPABASE_BUCKET!)
+        .upload(filename, slipFile.buffer, {
+          contentType: slipFile.mimetype,
+          upsert: true,
+        });
 
-        const { error } = await supabase.storage
-          .from(process.env.SUPABASE_BUCKET!)
-          .upload(filename, slipFile.buffer, {
-            contentType: slipFile.mimetype,
-            upsert: true,
-          });
-
-        if (error) {
-          return res.status(500).json({ error: "อัปโหลดสลิปไม่สำเร็จ" });
-        }
-
-        const { data } = supabase.storage
-          .from(process.env.SUPABASE_BUCKET!)
-          .getPublicUrl(filename);
-
-        slipUrl = data.publicUrl;
-      } else {
-        return res.status(400).json({ error: "ต้องแนบสลิปการจ่าย" });
+      if (error) {
+        console.error("Supabase upload error:", error);
+        return res.status(500).json({ error: "อัปโหลดสลิปไม่สำเร็จ" });
       }
+
+      const { data } = supabase.storage
+        .from(process.env.SUPABASE_BUCKET!)
+        .getPublicUrl(filename);
+
+      const slipUrl = data.publicUrl;
 
       // ✅ Transaction: สร้าง Payment + อัปเดต Bill
       const [payment, updatedBill] = await prisma.$transaction([
@@ -85,19 +114,18 @@ router.post(
 ห้อง ${bill.room.number}
 https://smartdorm-frontend.onrender.com`;
 
-      if (process.env.ADMIN_LINE_ID) {
+      if (process.env.ADMIN_LINE_ID)
         await notifyUser(process.env.ADMIN_LINE_ID, adminMsg);
-      }
 
       res.json({ message: "✅ ส่งสลิปสำเร็จ", payment, bill: updatedBill });
-    } catch {
+    } catch (err) {
+      console.error("Payment create error:", err);
       res.status(500).json({ error: "ไม่สามารถบันทึกการจ่ายได้" });
     }
   }
 );
 
-//✅ Admin ยืนยันการจ่ายบิล
-
+// ✅ Admin ยืนยันการจ่ายบิล
 router.put(
   "/:paymentId/verify",
   authMiddleware,
@@ -121,9 +149,8 @@ router.put(
 
       const userMsg = `✅ การชำระบิลห้อง ${payment.bill.room.number} ได้รับการยืนยันแล้ว ขอบคุณที่ใช้บริการ SmartDorm 😊`;
 
-      if (payment.bill.customer.userId) {
+      if (payment.bill.customer.userId)
         await notifyUser(payment.bill.customer.userId, userMsg);
-      }
 
       res.json({ message: "✅ ยืนยันการจ่ายสำเร็จ", bill: updatedBill });
     } catch {
@@ -132,7 +159,7 @@ router.put(
   }
 );
 
-   //❌ Admin ปฏิเสธการจ่ายบิล
+// ❌ Admin ปฏิเสธการจ่ายบิล
 router.put(
   "/:paymentId/reject",
   authMiddleware,
@@ -162,9 +189,8 @@ router.put(
 
       const userMsg = `❌ การชำระบิลห้อง ${payment.bill.room.number} ไม่ผ่านการตรวจสอบ กรุณาติดต่อผู้ดูแลระบบ`;
 
-      if (payment.bill.customer.userId) {
+      if (payment.bill.customer.userId)
         await notifyUser(payment.bill.customer.userId, userMsg);
-      }
 
       res.json({
         message: "❌ ปฏิเสธการจ่ายสำเร็จ",
@@ -177,9 +203,7 @@ router.put(
   }
 );
 
-/* ======================================================
-   📋 Admin ดึงข้อมูลการจ่ายทั้งหมด
-====================================================== */
+// 📋 Admin ดึงข้อมูลการจ่ายทั้งหมด
 router.get("/getall", authMiddleware, async (_req: Request, res: Response) => {
   try {
     const payments = await prisma.payment.findMany({
