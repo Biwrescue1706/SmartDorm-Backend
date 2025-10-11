@@ -5,7 +5,7 @@ import fetch from "node-fetch";
 
 const router = Router();
 
-// ตรวจสอบ token กับ LINE API
+// ✅ ตรวจสอบ token กับ LINE API
 async function verifyLineToken(accessToken: string): Promise<{
   userId: string;
   displayName: string;
@@ -16,7 +16,6 @@ async function verifyLineToken(accessToken: string): Promise<{
   });
   if (!res.ok) throw new Error("LINE token ไม่ถูกต้องหรือหมดอายุ");
 
-  // ✅ Cast type ของผลลัพธ์ที่ได้จาก res.json()
   return (await res.json()) as {
     userId: string;
     displayName: string;
@@ -99,7 +98,7 @@ router.post("/me", async (req: Request, res: Response) => {
   }
 });
 
-// ดึงรายการบิลที่ชำระแล้ว
+// ✅ ดึงรายการบิลที่ชำระแล้ว (ไม่ใช้ bill.number อีกต่อไป)
 router.post("/payments", async (req: Request, res: Response) => {
   try {
     const { accessToken } = req.body;
@@ -117,7 +116,7 @@ router.post("/payments", async (req: Request, res: Response) => {
     });
 
     const result = paidBills.map((b) => ({
-      billNumber: b.number,
+      billCode: b.billId.slice(-6).toUpperCase(),
       roomNumber: b.room.number,
       total: b.total,
       slipUrl: b.payment?.slipUrl,
