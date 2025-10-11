@@ -105,7 +105,6 @@ async function createBill(
 
   // ✅ แจ้งเตือนลูกค้าผ่าน LINE
   const msg = `📢 บิลใหม่ ห้อง: ${bill.room.number} มาแล้ว
-รหัสบิล: ${bill.billId.slice(-6).toUpperCase()}
 เดือน: ${bill.month.toLocaleDateString("th-TH", { year: "numeric", month: "long" })}
 ค่าเช่า: ${bill.rent.toLocaleString()} บาท
 ค่าส่วนกลาง: ${bill.service.toLocaleString()} บาท
