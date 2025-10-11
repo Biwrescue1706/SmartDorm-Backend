@@ -8,17 +8,24 @@ const router = Router();
 router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const rooms = await prisma.room.findMany({
-      orderBy: { number: "asc" }, // เรียงตามหมายเลขห้อง
+      orderBy: { number: "asc" },
       include: {
         bookings: true,
         bills: true,
-        adminCreated: { select: { adminId: true, username: true, name: true } },
-        adminUpdated: { select: { adminId: true, username: true, name: true } },
+        adminCreated: {
+          select: { adminId: true, username: true, name: true },
+        },
+        adminUpdated: {
+          select: { adminId: true, username: true, name: true },
+        },
       },
     });
     res.json(rooms);
-  } catch {
-    res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลห้องได้" });
+  } catch (err: any) {
+    console.error("❌ Error fetching rooms:", err);
+    res
+      .status(500)
+      .json({ error: err.message || "ไม่สามารถโหลดข้อมูลห้องได้" });
   }
 });
 
