@@ -81,7 +81,6 @@ model Booking {
 
 model Bill {
   billId String   @id @default(auto()) @map("_id") @db.ObjectId
-  number String   @unique
   month  DateTime
 
   // ✅ ค่าต่าง ๆ

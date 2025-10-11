@@ -1,3 +1,4 @@
+// src/routes/bill.ts
 import { Router, Request, Response } from "express";
 import prisma from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -30,14 +31,17 @@ async function createBill(
     throw new Error("กรุณากรอกข้อมูลให้ครบถ้วน");
   }
 
+  // ✅ ตรวจสอบห้อง
   const room = await prisma.room.findUnique({ where: { roomId } });
   if (!room) throw new Error("ไม่พบห้อง");
 
+  // ✅ ตั้งค่าราคาพื้นฐาน
   const rent = room.rent;
   const service = 20;
   const wPrice = 19;
   const ePrice = 7;
 
+  // ✅ หาบิลก่อนหน้า (เพื่อคำนวณหน่วยล่าสุด)
   const prevBill = await prisma.bill.findFirst({
     where: { roomId },
     orderBy: { createdAt: "desc" },
@@ -56,28 +60,22 @@ async function createBill(
   dueDate.setMonth(dueDate.getMonth() + 1);
   dueDate.setDate(5);
 
+  // ✅ ค่าปรับถ้าเกินกำหนด
   let overdueDays = 0;
   let fine = 0;
   const today = new Date();
-
   if (today > dueDate) {
     const diff = today.getTime() - dueDate.getTime();
     overdueDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
     fine = overdueDays * 50;
   }
 
+  // ✅ คำนวณยอดรวม
   const total = rent + service + waterCost + electricCost + fine;
-  const count = await prisma.bill.count({
-    where: { month: new Date(month) },
-  });
 
-  const number = `BILL-${createdAt.getFullYear()}${String(
-    createdAt.getMonth() + 1
-  ).padStart(2, "0")}-${count + 1}`;
-
+  // ✅ สร้างบิลใหม่
   const bill = await prisma.bill.create({
     data: {
-      number,
       month: new Date(month),
       rent,
       service,
@@ -105,7 +103,9 @@ async function createBill(
     include: { room: true, customer: true },
   });
 
+  // ✅ แจ้งเตือนลูกค้าผ่าน LINE
   const msg = `📢 บิลใหม่ ห้อง: ${bill.room.number} มาแล้ว
+รหัสบิล: ${bill.billId.slice(-6).toUpperCase()}
 เดือน: ${bill.month.toLocaleDateString("th-TH", { year: "numeric", month: "long" })}
 ค่าเช่า: ${bill.rent.toLocaleString()} บาท
 ค่าส่วนกลาง: ${bill.service.toLocaleString()} บาท
@@ -113,7 +113,7 @@ async function createBill(
 ค่าไฟ: ${bill.eUnits} หน่วย (${bill.electricCost.toLocaleString()} บาท)
 ยอดรวมทั้งหมด: ${bill.total.toLocaleString()} บาท
 ครบกำหนดชำระ: ${bill.dueDate.toLocaleDateString("th-TH")}
-ขอบคุณที่ใช้บริการ SmartDorm `;
+ขอบคุณที่ใช้บริการ SmartDorm`;
 
   if (bill.customer.userId) {
     await notifyUser(bill.customer.userId, msg);
