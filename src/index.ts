@@ -10,7 +10,7 @@ dotenv.config();
 const app = express();
 app.set("trust proxy", 1);
 
-// ✅ Allowed Origins
+//  Allowed Origins
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -21,14 +21,14 @@ const allowedOrigins = [
   "https://smartdorm-paymentbill.onrender.com",
 ];
 
-// ✅ CORS Config
+//  CORS Config
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     const isAllowed = allowedOrigins.includes(origin);
     isAllowed
       ? callback(null, true)
-      : callback(new Error("❌ CORS not allowed"));
+      : callback(new Error(" CORS not allowed"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -68,7 +68,7 @@ app.get("/health", (_req, res) => {
 
 // ---------------- Error Handler ----------------
 app.use((err: any, _req: any, res: any, _next: any) => {
-  console.error("❌ Global Error:", err);
+  console.error(" Global Error:", err);
   res.status(500).json({ error: err.message || "Server error" });
 });
 
@@ -78,14 +78,14 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, async () => {
   try {
     await prisma.$connect();
-    console.log("✅ Connected to MongoDB via Prisma");
+    console.log(" Connected to MongoDB via Prisma");
   } catch (err) {
-    console.error("❌ Prisma connection error:", err);
+    console.error(" Prisma connection error:", err);
     process.exit(1);
   }
   
   if (process.env.NODE_ENV !== "production") {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
   }
 });
 

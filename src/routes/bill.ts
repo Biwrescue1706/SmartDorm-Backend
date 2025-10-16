@@ -6,7 +6,7 @@ import { notifyUser } from "../utils/lineNotify";
 
 const router = Router();
 
-// ✅ ฟังก์ชันสร้างบิล (ใช้ซ้ำได้)
+//  ฟังก์ชันสร้างบิล (ใช้ซ้ำได้)
 async function createBill(
   {
     roomId,
@@ -31,17 +31,17 @@ async function createBill(
     throw new Error("กรุณากรอกข้อมูลให้ครบถ้วน");
   }
 
-  // ✅ ตรวจสอบห้อง
+  //  ตรวจสอบห้อง
   const room = await prisma.room.findUnique({ where: { roomId } });
   if (!room) throw new Error("ไม่พบห้อง");
 
-  // ✅ ตั้งค่าราคาพื้นฐาน
+  //  ตั้งค่าราคาพื้นฐาน
   const rent = room.rent;
   const service = 20;
   const wPrice = 19;
   const ePrice = 7;
 
-  // ✅ หาบิลก่อนหน้า (เพื่อคำนวณหน่วยล่าสุด)
+  //  หาบิลก่อนหน้า (เพื่อคำนวณหน่วยล่าสุด)
   const prevBill = await prisma.bill.findFirst({
     where: { roomId },
     orderBy: { createdAt: "desc" },
@@ -60,7 +60,7 @@ async function createBill(
   dueDate.setMonth(dueDate.getMonth() + 1);
   dueDate.setDate(5);
 
-  // ✅ ค่าปรับถ้าเกินกำหนด
+  //  ค่าปรับถ้าเกินกำหนด
   let overdueDays = 0;
   let fine = 0;
   const today = new Date();
@@ -70,10 +70,10 @@ async function createBill(
     fine = overdueDays * 50;
   }
 
-  // ✅ คำนวณยอดรวม
+  //  คำนวณยอดรวม
   const total = rent + service + waterCost + electricCost + fine;
 
-  // ✅ สร้างบิลใหม่
+  //  สร้างบิลใหม่
   const bill = await prisma.bill.create({
     data: {
       month: new Date(month),
@@ -103,7 +103,7 @@ async function createBill(
     include: { room: true, customer: true },
   });
 
-  // ✅ แจ้งเตือนลูกค้าผ่าน LINE
+  //  แจ้งเตือนลูกค้าผ่าน LINE
   const msg = `📢 บิลใหม่ ห้อง: ${bill.room.number} มาแล้ว
 เดือน: ${bill.month.toLocaleDateString("th-TH", { year: "numeric", month: "long" })}
 ค่าเช่า: ${bill.rent.toLocaleString()} บาท
@@ -121,17 +121,17 @@ async function createBill(
   return bill;
 }
 
-// 🧾 สร้างบิลใหม่ (Admin เท่านั้น)
+// สร้างบิลใหม่ (Admin เท่านั้น)
 router.post("/create", authMiddleware, async (req: Request, res: Response) => {
   try {
     const bill = await createBill(req.body, req.admin!.adminId);
-    res.json({ message: "✅ สร้างบิลสำเร็จและแจ้งลูกค้าแล้ว", bill });
+    res.json({ message: " สร้างบิลสำเร็จและแจ้งลูกค้าแล้ว", bill });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "ไม่สามารถสร้างบิลได้" });
   }
 });
 
-// 🧾 สร้างบิลจาก roomId (ดึง customerId อัตโนมัติ)
+// สร้างบิลจาก roomId (ดึง customerId อัตโนมัติ)
 router.post(
   "/createFromRoom/:roomId",
   authMiddleware,
@@ -159,14 +159,14 @@ router.post(
         req.admin!.adminId
       );
 
-      res.json({ message: "✅ สร้างบิลสำเร็จและแจ้งลูกค้าแล้ว", bill });
+      res.json({ message: " สร้างบิลสำเร็จและแจ้งลูกค้าแล้ว", bill });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "ไม่สามารถสร้างบิลได้" });
     }
   }
 );
 
-// 📋 ดึงบิลทั้งหมด
+// ดึงบิลทั้งหมด
 router.get("/getall", authMiddleware, async (_req, res) => {
   try {
     const bills = await prisma.bill.findMany({
@@ -179,7 +179,7 @@ router.get("/getall", authMiddleware, async (_req, res) => {
   }
 });
 
-// 📄 ดึงบิลรายตัว
+// ดึงบิลรายตัว
 router.get("/:billId", authMiddleware, async (req, res) => {
   try {
     const { billId } = req.params;
@@ -194,7 +194,7 @@ router.get("/:billId", authMiddleware, async (req, res) => {
   }
 });
 
-// ✏️ อัปเดตบิล
+//  อัปเดตบิล
 router.put("/:billId", authMiddleware, async (req, res) => {
   try {
     const { billId } = req.params;
@@ -202,18 +202,18 @@ router.put("/:billId", authMiddleware, async (req, res) => {
       where: { billId },
       data: { ...req.body, updatedBy: req.admin!.adminId },
     });
-    res.json({ message: "✅ อัปเดตบิลสำเร็จ", updated });
+    res.json({ message: " อัปเดตบิลสำเร็จ", updated });
   } catch {
     res.status(500).json({ error: "ไม่สามารถอัปเดตบิลได้" });
   }
 });
 
-// 🗑️ ลบบิล
+//  ลบบิล
 router.delete("/:billId", authMiddleware, async (req, res) => {
   try {
     const { billId } = req.params;
     await prisma.bill.delete({ where: { billId } });
-    res.json({ message: "🗑️ ลบบิลสำเร็จ" });
+    res.json({ message: " ลบบิลสำเร็จ" });
   } catch {
     res.status(500).json({ error: "ไม่สามารถลบบิลได้" });
   }

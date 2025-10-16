@@ -7,7 +7,7 @@ if (!JWT_SECRET) {
   throw new Error("❌ JWT_SECRET must be defined in .env file");
 }
 
-// ✅ เพิ่ม role เข้าใน type ของ req.admin
+//  เพิ่ม role เข้าใน type ของ req.admin
 declare global {
   namespace Express {
     interface Request {
@@ -15,13 +15,13 @@ declare global {
         adminId: string;
         username: string;
         name: string;
-        role: number; // ✅ เพิ่ม role
+        role: number; //  เพิ่ม role
       };
     }
   }
 }
 
-// ✅ ตรวจสอบว่ามี token และถูกต้องหรือไม่
+//  ตรวจสอบว่ามี token และถูกต้องหรือไม่
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const token =
     req.cookies?.token ||
@@ -42,17 +42,16 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       adminId: decoded.adminId,
       username: decoded.username,
       name: decoded.name,
-      role: decoded.role, // ✅ เพิ่ม role
+      role: decoded.role, //  เพิ่ม role
     };
 
     next();
   } catch (err: any) {
-    console.error("❌ Token verification failed:", err.message);
     return res.status(401).json({ error: "Token ไม่ถูกต้องหรือหมดอายุ" });
   }
 }
 
-// ✅ Middleware ตรวจ role เฉพาะ
+//  Middleware ตรวจ role เฉพาะ
 export function roleMiddleware(requiredRole: number) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.admin) {

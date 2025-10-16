@@ -15,7 +15,7 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
-// ✅ ตรวจสอบ token กับ LINE API
+//  ตรวจสอบ token กับ LINE API
 async function verifyLineToken(accessToken: string): Promise<{
   userId: string;
   displayName: string;
@@ -98,9 +98,8 @@ https://smartdorm-frontend.onrender.com`;
     if (process.env.ADMIN_LINE_ID)
       await notifyUser(process.env.ADMIN_LINE_ID, adminMsg);
 
-    res.json({ message: "✅ ส่งสลิปสำเร็จ", payment, bill: updatedBill });
+    res.json({ message: " ส่งสลิปสำเร็จ", payment, bill: updatedBill });
   } catch (err) {
-    console.error("Payment create error:", err);
     res.status(500).json({ error: "ไม่สามารถบันทึกการจ่ายได้" });
   }
 });

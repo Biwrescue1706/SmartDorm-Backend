@@ -7,7 +7,7 @@ import { authMiddleware } from "../middleware/authMiddleware";
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
-if (!JWT_SECRET) throw new Error("❌ JWT_SECRET must be defined in .env file");
+if (!JWT_SECRET) throw new Error(" JWT_SECRET must be defined in .env file");
 
 // ---------------- REGISTER ----------------
 router.post("/register", async (req: Request, res: Response) => {
@@ -27,7 +27,7 @@ router.post("/register", async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
-      message: "✅ สมัครสมาชิกสำเร็จ",
+      message: " สมัครสมาชิกสำเร็จ",
       admin: {
         adminId: admin.adminId,
         username: admin.username,
@@ -36,7 +36,7 @@ router.post("/register", async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error("❌ Register error:", err);
+    console.error(" Register error:", err);
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการสมัครสมาชิก" });
   }
 });
@@ -83,7 +83,7 @@ router.post("/login", async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error("❌ Login error:", err);
+    console.error(" Login error:", err);
     res.status(500).json({ error: "ไม่สามารถเข้าสู่ระบบได้" });
   }
 });
@@ -170,14 +170,14 @@ router.put("/profile", authMiddleware, async (req: Request, res: Response) => {
 
     res.json({ message: "อัปเดตข้อมูลสำเร็จ", updated });
   } catch (err) {
-    console.error("❌ Profile update error:", err);
+    console.error(" Profile update error:", err);
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์" });
   }
 });
 
 // ---------------- FORGOT PASSWORD ----------------
 
-// 🔍 ตรวจสอบว่า username มีในระบบไหม
+//  ตรวจสอบว่า username มีในระบบไหม
 router.post("/forgot/check", async (req: Request, res: Response) => {
   try {
     const { username } = req.body;
@@ -190,7 +190,7 @@ router.post("/forgot/check", async (req: Request, res: Response) => {
   }
 });
 
-// 🔄 รีเซ็ตรหัสผ่านใหม่
+// รีเซ็ตรหัสผ่านใหม่
 router.put("/forgot/reset", async (req: Request, res: Response) => {
   try {
     const { username, newPassword } = req.body;

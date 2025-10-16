@@ -7,16 +7,16 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-// 📂 เก็บไฟล์ชั่วคราวใน RAM
+// เก็บไฟล์ชั่วคราวใน RAM
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 📂 Supabase client
+// Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_KEY!
 );
 
-// 📋 ดึงการจองทั้งหมด
+// ดึงการจองทั้งหมด
 router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const bookings = await prisma.booking.findMany({
@@ -29,7 +29,7 @@ router.get("/getall", async (_req: Request, res: Response) => {
   }
 });
 
-// 📝 ผู้ใช้ขอจองห้อง
+//  ผู้ใช้ขอจองห้อง
 router.post(
   "/create",
   upload.single("slip"),
@@ -52,7 +52,7 @@ router.post(
         return res.status(400).json({ error: "ข้อมูลไม่ครบ" });
       }
 
-      // ✅ Upload slip ไป Supabase
+      //  Upload slip ไป Supabase
       let finalSlipUrl = "";
       if (slipFile) {
         const filename = `slips/${Date.now()}_${slipFile.originalname}`;
@@ -77,7 +77,7 @@ router.post(
         finalSlipUrl = data.publicUrl;
       }
 
-      // ✅ Transaction: หา/สร้าง Customer + Booking + อัพเดทสถานะห้อง
+      //  Transaction: หา/สร้าง Customer + Booking + อัพเดทสถานะห้อง
       const booking = await prisma.$transaction(async (tx) => {
         let customer = await tx.customer.findFirst({ where: { userId } });
         if (!customer) {
@@ -114,7 +114,7 @@ router.post(
         return newBooking;
       });
 
-      // ✅ แจ้ง Admin ผ่าน LINE
+      //  แจ้ง Admin ผ่าน LINE
       const adminMsg = `📢 มีการส่งคำขอจองห้องใหม่
 ชื่อ : ${booking.customer.fullName}
 เบอร์โทร : ${booking.customer.cphone}
@@ -123,7 +123,7 @@ https://smartdorm-frontend.onrender.com`;
 
       await notifyUser(process.env.ADMIN_LINE_ID!, adminMsg);
 
-      res.json({ message: "✅ จองสำเร็จ", booking });
+      res.json({ message: " จองสำเร็จ", booking });
     } catch (err: any) {
       res.status(500).json({
         error: "ไม่สามารถจองห้องได้",
@@ -133,7 +133,7 @@ https://smartdorm-frontend.onrender.com`;
   }
 );
 
-// ✅ Admin อนุมัติการจอง
+//  Admin อนุมัติการจอง
 router.put("/:bookingId/approve", authMiddleware, async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -152,19 +152,19 @@ router.put("/:bookingId/approve", authMiddleware, async (req, res) => {
       include: { customer: true, room: true },
     });
 
-    const userMsg = `การจองห้อง ${booking.room.number}
+    const userMsg = `📢 การจองห้อง ${booking.room.number}
 ของคุณ ${booking.customer.userName} ได้รับการอนุมัติแล้ว
-ขอบคุณที่ใช้บริการ SmartDorm 😊`;
+ขอบคุณที่ใช้บริการ SmartDorm`;
 
     await notifyUser(booking.customer.userId, userMsg);
 
-    res.json({ message: "✅ อนุมัติการจองสำเร็จ", booking: updatedBooking });
+    res.json({ message: " อนุมัติการจองสำเร็จ", booking: updatedBooking });
   } catch {
     res.status(500).json({ error: "ไม่สามารถอนุมัติการจองได้" });
   }
 });
 
-// ❌ Admin ปฏิเสธการจอง
+//  Admin ปฏิเสธการจอง
 router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -187,18 +187,19 @@ router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
       }),
     ]);
 
-    const userMsg = `การจองห้อง ${booking.room.number} ของคุณ ${booking.customer.userName} ถูกปฏิเสธ
-หากมีข้อสงสัยกรุณาติดต่อผู้ดูแลระบบ`;
+    const userMsg = `📢การจองห้อง ${booking.room.number} 
+ของคุณ ${booking.customer.userName} ถูกปฏิเสธ
+กรุณาติดต่อผู้ดูแลระบบ`;
 
     await notifyUser(booking.customer.userId, userMsg);
 
-    res.json({ message: "❌ ปฏิเสธการจองสำเร็จ", booking: updatedBooking });
+    res.json({ message: " ปฏิเสธการจองสำเร็จ", booking: updatedBooking });
   } catch {
     res.status(500).json({ error: "ไม่สามารถปฏิเสธการจองได้" });
   }
 });
 
-// ✏️ Admin แก้ไขข้อมูลการจอง
+// Admin แก้ไขข้อมูลการจอง
 router.put("/:bookingId", authMiddleware, async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -235,13 +236,13 @@ router.put("/:bookingId", authMiddleware, async (req, res) => {
       include: { customer: true, room: true },
     });
 
-    res.json({ message: "✅ แก้ไขการจองสำเร็จ", booking: updatedBooking });
+    res.json({ message: " แก้ไขการจองสำเร็จ", booking: updatedBooking });
   } catch {
     res.status(500).json({ error: "ไม่สามารถแก้ไขการจองได้" });
   }
 });
 
-// 🗑️ Admin ลบการจอง
+//  Admin ลบการจอง
 router.delete("/:bookingId", authMiddleware, async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -256,7 +257,7 @@ router.delete("/:bookingId", authMiddleware, async (req, res) => {
 
     await prisma.booking.delete({ where: { bookingId } });
 
-    res.json({ message: "🗑️ ลบการจองสำเร็จ" });
+    res.json({ message: "ลบการจองสำเร็จ" });
   } catch {
     res.status(500).json({ error: "ไม่สามารถลบการจองได้" });
   }

@@ -22,7 +22,6 @@ router.get("/getall", async (_req: Request, res: Response) => {
     });
     res.json(rooms);
   } catch (err: any) {
-    console.error("❌ Error fetching rooms:", err);
     res
       .status(500)
       .json({ error: err.message || "ไม่สามารถโหลดข้อมูลห้องได้" });

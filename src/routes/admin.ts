@@ -4,9 +4,9 @@ import { Router, Request, Response } from "express";
 import { authMiddleware, roleMiddleware } from "../middleware/authMiddleware";
 
 const router = Router();
-// ---------------- ADMIN CRUD ----------------
 
-// 📌 ดึงข้อมูลแอดมินทั้งหมด
+// ---------------- ADMIN CRUD ----------------
+// ดึงข้อมูลแอดมินทั้งหมด
 router.get("/getall",authMiddleware, async (_req: Request, res: Response) => {
   try {
     const admins = await prisma.admin.findMany({
@@ -25,7 +25,7 @@ router.get("/getall",authMiddleware, async (_req: Request, res: Response) => {
   }
 });
 
-// 📌 ดึงข้อมูลแอดมินตาม ID
+// ดึงข้อมูลแอดมินตาม ID
 router.get("/:adminId",authMiddleware, async (req: Request, res: Response) => {
   try {
     const { adminId } = req.params;
@@ -52,7 +52,7 @@ router.get("/:adminId",authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-// 📌 แก้ไขข้อมูลแอดมิน (เฉพาะแอดมินหลักเท่านั้น)
+// แก้ไขข้อมูลแอดมิน (เฉพาะแอดมินหลักเท่านั้น)
 router.put(
   "/:adminId",
   authMiddleware,
@@ -66,7 +66,7 @@ router.put(
       if (username) dataToUpdate.username = username.trim();
       if (name) dataToUpdate.name = name.trim();
       if (password) dataToUpdate.password = await bcrypt.hash(password, 10);
-      if (role !== undefined) dataToUpdate.role = Number(role); // ✅ อัปเดตสิทธิ์ได้ด้วย
+      if (role !== undefined) dataToUpdate.role = Number(role); //  อัปเดตสิทธิ์ได้ด้วย
 
       const updated = await prisma.admin.update({
         where: { adminId },
@@ -75,13 +75,12 @@ router.put(
 
       res.json({ message: "อัปเดตข้อมูลผู้ดูแลระบบสำเร็จ", updated });
     } catch (err) {
-      console.error("❌ Error updating admin:", err);
       res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล" });
     }
   }
 );
 
-// 📌 ลบแอดมิน (เฉพาะแอดมินหลักเท่านั้น)
+// ลบแอดมิน (เฉพาะแอดมินหลักเท่านั้น)
 router.delete(
   "/:adminId",
   authMiddleware,
@@ -92,7 +91,7 @@ router.delete(
       await prisma.admin.delete({ where: { adminId } });
       res.json({ message: "ลบผู้ดูแลระบบสำเร็จ" });
     } catch (err) {
-      console.error("❌ Error deleting admin:", err);
+      console.error(" Error deleting admin:", err);
       res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบข้อมูล" });
     }
   }

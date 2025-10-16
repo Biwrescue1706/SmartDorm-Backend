@@ -110,7 +110,7 @@ https://smartdorm-frontend.onrender.com`;
   }
 });
 
-// ✅ Admin อนุมัติการคืนห้อง
+//  Admin อนุมัติการคืนห้อง
 router.put("/:bookingId/approveCheckout", async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -139,7 +139,7 @@ router.put("/:bookingId/approveCheckout", async (req, res) => {
       }),
     ]);
 
-    const userMsg = `✅ การคืนห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว
+    const userMsg = ` การคืนห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว
 กรุณาส่งหมายเลขบัญชีเพื่อรับเงินมัดจำคืน
 ขอบคุณที่ใช้บริการ SmartDorm`;
 
@@ -179,7 +179,6 @@ router.put("/:bookingId/rejectCheckout", async (req, res) => {
 
     res.json({ message: "ปฏิเสธการคืนสำเร็จ", booking: updatedBooking });
   } catch (err) {
-    console.error("Reject checkout error:", err);
     res.status(500).json({ error: "ไม่สามารถปฏิเสธการคืนได้" });
   }
 });
@@ -207,7 +206,6 @@ router.put("/:bookingId", async (req, res) => {
 
     res.json({ message: "แก้ไขข้อมูลการคืนสำเร็จ", booking: updatedBooking });
   } catch (err) {
-    console.error("Edit checkout error:", err);
     res.status(500).json({ error: "ไม่สามารถแก้ไขข้อมูลการคืนได้" });
   }
 });
@@ -230,7 +228,6 @@ router.delete("/:bookingId", async (req, res) => {
 
     res.json({ message: "ลบข้อมูลการคืนสำเร็จ", booking: updatedBooking });
   } catch (err) {
-    console.error("Delete checkout error:", err);
     res.status(500).json({ error: "ไม่สามารถลบข้อมูลการคืนได้" });
   }
 });

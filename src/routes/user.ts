@@ -5,7 +5,7 @@ import fetch from "node-fetch";
 
 const router = Router();
 
-// ✅ ตรวจสอบ token กับ LINE API
+//  ตรวจสอบ token กับ LINE API
 async function verifyLineToken(accessToken: string): Promise<{
   userId: string;
   displayName: string;
@@ -67,7 +67,6 @@ router.post("/register", async (req: Request, res: Response) => {
 
     res.json({ message: "สมัครหรืออัปเดตข้อมูลสำเร็จ", customer });
   } catch (err) {
-    console.error("Customer register error:", err);
     res.status(500).json({ error: "ไม่สามารถสมัครหรืออัปเดตข้อมูลได้" });
   }
 });
@@ -93,12 +92,11 @@ router.post("/me", async (req: Request, res: Response) => {
 
     res.json(customer);
   } catch (err) {
-    console.error("Customer fetch error:", err);
     res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลได้" });
   }
 });
 
-// ✅ ดึงรายการบิลที่ชำระแล้ว (ไม่ใช้ bill.number อีกต่อไป)
+//  ดึงรายการบิลที่ชำระแล้ว (ไม่ใช้ bill.number อีกต่อไป)
 router.post("/payments", async (req: Request, res: Response) => {
   try {
     const { accessToken } = req.body;
@@ -129,7 +127,6 @@ router.post("/payments", async (req: Request, res: Response) => {
       bills: result,
     });
   } catch (err) {
-    console.error("Paid bills fetch error:", err);
     res.status(500).json({ error: "ไม่สามารถโหลดข้อมูลบิลที่ชำระแล้วได้" });
   }
 });
@@ -185,7 +182,6 @@ router.post("/bookings/returnable", async (req: Request, res: Response) => {
       bookings,
     });
   } catch (err) {
-    console.error("Returnable bookings error:", err);
     res.status(500).json({ error: "ไม่สามารถโหลดรายการที่คืนได้" });
   }
 });

@@ -12,7 +12,7 @@ export async function notifyUser(to: string, message: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.LINE_CHANNEL_TOKEN}`, // ✅ ใช้ Messaging API token
+        Authorization: `Bearer ${process.env.LINE_CHANNEL_TOKEN}`, //  ใช้ Messaging API token
       },
       body: JSON.stringify({
         to,
