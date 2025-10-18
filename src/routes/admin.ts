@@ -7,7 +7,7 @@ const router = Router();
 
 // ---------------- ADMIN CRUD ----------------
 // ดึงข้อมูลแอดมินทั้งหมด
-router.get("/getall",authMiddleware, async (_req: Request, res: Response) => {
+router.get("/getall", async (_req: Request, res: Response) => {
   try {
     const admins = await prisma.admin.findMany({
       select: {
@@ -26,7 +26,7 @@ router.get("/getall",authMiddleware, async (_req: Request, res: Response) => {
 });
 
 // ดึงข้อมูลแอดมินตาม ID
-router.get("/:adminId",authMiddleware, async (req: Request, res: Response) => {
+router.get("/:adminId", async (req: Request, res: Response) => {
   try {
     const { adminId } = req.params;
 
