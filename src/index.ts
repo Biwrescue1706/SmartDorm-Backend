@@ -41,6 +41,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ---------------- Routes ----------------
+import adminRouter from "./routes/admin";
 import authRouter from "./routes/auth";
 import roomRouter from "./routes/room";
 import bookingRouter from "./routes/booking";
@@ -51,6 +52,7 @@ import userRouter from "./routes/user";
 import qrRouter from "./routes/qr";
 
 app.use("/auth", authRouter);
+app.use("/admin",adminRouter );
 app.use("/room", roomRouter);
 app.use("/booking", bookingRouter);
 app.use("/checkout", checkoutRouter);
