@@ -250,15 +250,38 @@ router.delete("/:bookingId", authMiddleware, async (req, res) => {
     const booking = await prisma.booking.findUnique({ where: { bookingId } });
     if (!booking) return res.status(404).json({ error: "ไม่พบการจอง" });
 
+    //  ถ้ามี slipUrl ให้ลบจาก Supabase
+    if (booking.slipUrl) {
+      try {
+        // ตัดเอา path หลังชื่อ bucket (เช่น slips/1734462_xxx.png)
+        const filePath = booking.slipUrl.split("/").slice(-2).join("/");
+
+        const { error: removeError } = await supabase.storage
+          .from(process.env.SUPABASE_BUCKET!)
+          .remove([filePath]);
+
+        if (removeError) {
+          console.warn("⚠️ ลบสลิปจาก Supabase ไม่สำเร็จ:", removeError.message);
+        } else {
+          console.log("🗑️ ลบสลิปจาก Supabase สำเร็จ:", filePath);
+        }
+      } catch (err) {
+        console.warn("⚠️ ไม่สามารถลบไฟล์ Supabase ได้:", err);
+      }
+    }
+
+    //  อัพเดทสถานะห้องก่อนลบการจอง
     await prisma.room.update({
       where: { roomId: booking.roomId },
       data: { status: 0 },
     });
 
+    // ลบ booking ในฐานข้อมูล
     await prisma.booking.delete({ where: { bookingId } });
 
-    res.json({ message: "ลบการจองสำเร็จ" });
-  } catch {
+    res.json({ message: "ลบการจองและสลิปสำเร็จ" });
+  } catch (err) {
+    console.error("❌ Error deleting booking:", err);
     res.status(500).json({ error: "ไม่สามารถลบการจองได้" });
   }
 });
