@@ -115,14 +115,21 @@ async function createBill(
   });
 
   // แจ้งเตือนลูกค้าผ่าน LINE
-  const msg = `บิลใหม่ ห้อง: ${bill.room.number} มาแล้ว
-เดือน: ${bill.month.toLocaleDateString("th-TH", { year: "numeric", month: "long" })}
-ค่าเช่า: ${bill.rent.toLocaleString()} บาท
-ค่าส่วนกลาง: ${bill.service.toLocaleString()} บาท
-ค่าน้ำ: ${bill.wUnits} หน่วย (${bill.waterCost.toLocaleString()} บาท)
-ค่าไฟ: ${bill.eUnits} หน่วย (${bill.electricCost.toLocaleString()} บาท)
+  const msg = `📢 บิลใหม่ ของคุณ ${bill.customer.userName}
+ห้อง: ${bill.room.number}
+เดือน : ${bill.month.toLocaleDateString("th-TH", { year: "numeric", month: "long" })}
+
+-------------------
+
+ค่าเช่า : ${bill.rent.toLocaleString()} บาท
+ค่าส่วนกลาง : ${bill.service.toLocaleString()} บาท
+ค่าน้ำ : ${bill.wUnits} หน่วย (${bill.waterCost.toLocaleString()} บาท)
+ค่าไฟ : ${bill.eUnits} หน่วย (${bill.electricCost.toLocaleString()} บาท)
 ยอดรวมทั้งหมด: ${bill.total.toLocaleString()} บาท
 ครบกำหนดชำระ: ${bill.dueDate.toLocaleDateString("th-TH")}
+
+-------------------
+
 ขอบคุณที่ใช้บริการ SmartDorm`;
 
   if (bill.customer.userId) {

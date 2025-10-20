@@ -77,35 +77,35 @@ router.post(
         finalSlipUrl = data.publicUrl;
       }
 
-      //  Transaction: หา/สร้าง Customer + Booking + อัพเดทสถานะห้อง
+      // Transaction: สร้าง Customer ใหม่ทุกครั้ง + Booking + อัปเดตสถานะห้อง
       const booking = await prisma.$transaction(async (tx) => {
-        let customer = await tx.customer.findFirst({ where: { userId } });
-        if (!customer) {
-          customer = await tx.customer.create({
-            data: {
-              userId,
-              userName,
-              ctitle,
-              cname,
-              csurname,
-              fullName: `${ctitle} ${cname} ${csurname}`,
-              cphone,
-              cmumId,
-            },
-          });
-        }
+        //  สร้าง customer ใหม่ทุกครั้ง (ไม่ตรวจซ้ำ)
+        const customer = await tx.customer.create({
+          data: {
+            userId,
+            userName,
+            ctitle,
+            cname,
+            csurname,
+            fullName: `${ctitle}${cname} ${csurname}`,
+            cphone,
+            cmumId,
+          },
+        });
 
+        //  สร้าง booking
         const newBooking = await tx.booking.create({
           data: {
             roomId,
             customerId: customer.customerId,
             checkin: new Date(checkin),
             slipUrl: finalSlipUrl,
-            status: 0,
+            status: 0, // pending
           },
           include: { customer: true, room: true },
         });
 
+        //  อัปเดตสถานะห้อง
         await tx.room.update({
           where: { roomId },
           data: { status: 1 },
@@ -115,15 +115,40 @@ router.post(
       });
 
       //  แจ้ง Admin ผ่าน LINE
-      const adminMsg = `📢 มีการส่งคำขอจองห้องใหม่
+      const adminMsg = `📢 มีการส่งคำขอจองห้องใหม่ 
+ของคุณ ${booking.customer.userName}
 ชื่อ : ${booking.customer.fullName}
 เบอร์โทร : ${booking.customer.cphone}
 ห้อง : ${booking.room.number}
-https://smartdorm-frontend.onrender.com`;
+วันที่จอง: ${new Date(booking.createdAt).toLocaleDateString()}
+วันที่เช็คอิน: ${new Date(booking.checkin).toLocaleDateString()}
+สลิปการโอนเงิน: ${booking.slipUrl || "ไม่มีสลิป"}
+สามารถเข้าไป ตรวจสอบและอนุมัติได้ที่: https://smartdorm-frontend.onrender.com
+`;
 
-      await notifyUser(process.env.ADMIN_LINE_ID!, adminMsg);
+      const userMsg = `📢 ได้ส่งคำขอจองห้อง ${booking.room.number} 
+ของคุณ ${booking.customer.userName} เรียบร้อยแล้ว
+กรุณารอการอนุมัติจากผู้ดูแลระบบ
 
-      res.json({ message: " จองสำเร็จ", booking });
+-------------------
+
+รหัสการจองของคุณคือ: ${booking.bookingId}
+ชื่อ : ${booking.customer.fullName}
+เบอร์โทร : ${booking.customer.cphone}
+วันที่จอง: ${new Date(booking.createdAt).toLocaleDateString()}
+วันที่เช็คอิน: ${new Date(booking.checkin).toLocaleDateString()}
+สถานะ: รอการอนุมัติจากผู้ดูแลระบบ
+
+-------------------
+
+ขอบคุณที่ใช้บริการ SmartDorm `;
+
+      await notifyUser(booking.customer.userId, userMsg);
+      if (process.env.ADMIN_LINE_ID) {
+        await notifyUser(process.env.ADMIN_LINE_ID, adminMsg);
+      }
+
+      res.json({ message: "จองสำเร็จ", booking });
     } catch (err: any) {
       res.status(500).json({
         error: "ไม่สามารถจองห้องได้",
