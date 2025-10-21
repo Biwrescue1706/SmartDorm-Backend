@@ -6,6 +6,15 @@ import fetch from "node-fetch";
 
 const router = Router();
 
+const formatThaiDate = (dateInput: string | Date) => {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  return date.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
 // ตรวจสอบ token กับ LINE API
 async function verifyLineToken(accessToken: string): Promise<{
   userId: string;
@@ -95,13 +104,39 @@ router.put("/:bookingId/checkout", async (req: Request, res: Response) => {
     });
 
     const adminMsg = `📢 มีการส่งคำขอคืนห้องใหม่
+  ของคุณ ${booking.customer.userName}
+
+-----------ข้อมูลลูกค้า----------
+รหัสการจองของคุณคือ: ${booking.bookingId}
 ชื่อ : ${booking.customer.fullName}
 เบอร์โทร : ${booking.customer.cphone}
-ขอคืนห้อง ${booking.room.number}
+ห้อง : ${booking.room.number}
+วันที่ขอคืนห้อง: ${formatThaiDate(booking.checkout!)}
+
+-----------รายละเอียดเพิ่มเติม----------
+
+สามารถเข้าไป ตรวจสอบและอนุมัติได้ที่ :
 https://smartdorm-frontend.onrender.com`;
 
-    if (process.env.ADMIN_LINE_ID)
+    const userMsg = `📢 ได้ส่งคำขอคืนห้อง ${booking.room.number} 
+ของคุณ ${booking.customer.userName} เรียบร้อยแล้ว
+
+-----------ข้อมูลลูกค้า----------
+
+รหัสการจองของคุณคือ: ${booking.bookingId}
+ชื่อ : ${booking.customer.fullName}
+เบอร์โทร : ${booking.customer.cphone}
+วันที่เช็คเอาท์: ${formatThaiDate(booking.checkout!)}
+สถานะ: รอการอนุมัติการคืนห้องจากผู้ดูแลระบบ
+
+--------------------
+
+ขอบคุณที่ใช้บริการ 🏫SmartDorm🎉 `;
+
+    await notifyUser(booking.customer.userId, userMsg);
+    if (process.env.ADMIN_LINE_ID) {
       await notifyUser(process.env.ADMIN_LINE_ID, adminMsg);
+    }
 
     res.json({ message: "ขอคืนห้องสำเร็จ รอแอดมินอนุมัติ", booking: updated });
   } catch (err) {
@@ -139,12 +174,25 @@ router.put("/:bookingId/approveCheckout", async (req, res) => {
       }),
     ]);
 
-    const userMsg = ` การคืนห้อง ${booking.room.number} ได้รับการอนุมัติแล้ว
-กรุณาส่งหมายเลขบัญชีเพื่อรับเงินมัดจำคืน
-ขอบคุณที่ใช้บริการ SmartDorm`;
+    const userMsg = `📢 การคืนห้อง ${booking.room.number} 
+ของคุณ ${booking.customer.userName}
 
-    if (booking.customer.userId)
-      await notifyUser(booking.customer.userId, userMsg);
+-----------ข้อมูลลูกค้า----------
+
+รหัสการจองของคุณคือ: ${booking.bookingId}
+ชื่อ : ${booking.customer.fullName}
+สถานะ : ได้รับการอนุมัติ คืนห้อง แล้ว
+
+-----------หมายเลขบัญชี----------
+
+กรุณาส่งหมายเลขบัญชีเพื่อรับเงินมัดจำคืน
+ธนาคาร : ___________
+ชื่อบัญชี : ___________
+เลขที่บัญชี : ___________
+
+ขอบคุณที่ใช้บริการ 🏫SmartDorm🎉 `;
+
+    await notifyUser(booking.customer.userId, userMsg);
 
     res.json({ message: "อนุมัติการคืนห้องสำเร็จ", booking: updatedBooking });
   } catch (err) {

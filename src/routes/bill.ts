@@ -5,6 +5,15 @@ import { notifyUser } from "../utils/lineNotify";
 
 const router = Router();
 
+const formatThaiDate = (dateInput: string | Date) => {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  return date.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
 // ฟังก์ชันสร้างบิล (ใช้ซ้ำได้)
 async function createBill(
   {
@@ -123,14 +132,14 @@ async function createBill(
 
 ค่าเช่า : ${bill.rent.toLocaleString()} บาท
 ค่าส่วนกลาง : ${bill.service.toLocaleString()} บาท
-ค่าน้ำ : ${bill.wUnits} หน่วย (${bill.waterCost.toLocaleString()} บาท)
-ค่าไฟ : ${bill.eUnits} หน่วย (${bill.electricCost.toLocaleString()} บาท)
+ค่าน้ำ : ${bill.wUnits} หน่วย ( ${bill.waterCost.toLocaleString()} บาท )
+ค่าไฟ : ${bill.eUnits} หน่วย ( ${bill.electricCost.toLocaleString()} บาท )
 ยอดรวมทั้งหมด: ${bill.total.toLocaleString()} บาท
-ครบกำหนดชำระ: ${bill.dueDate.toLocaleDateString("th-TH")}
+ครบกำหนดชำระ: ${formatThaiDate(bill.dueDate)}
 
 -------------------
 
-ขอบคุณที่ใช้บริการ SmartDorm`;
+ขอบคุณที่ใช้บริการ 🏫SmartDorm🎉`;
 
   if (bill.customer.userId) {
     await notifyUser(bill.customer.userId, msg);

@@ -16,6 +16,15 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
+const formatThaiDate = (dateInput: string | Date) => {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  return date.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
 // ดึงการจองทั้งหมด
 router.get("/getall", async (_req: Request, res: Response) => {
   try {
@@ -115,33 +124,39 @@ router.post(
       });
 
       //  แจ้ง Admin ผ่าน LINE
-      const adminMsg = `📢 มีการส่งคำขอจองห้องใหม่ 
+      const adminMsg = `📢 มีการส่งคำขอจองห้อง 
 ของคุณ ${booking.customer.userName}
+
+-----------ข้อมูลลูกค้า----------
+
 ชื่อ : ${booking.customer.fullName}
 เบอร์โทร : ${booking.customer.cphone}
 ห้อง : ${booking.room.number}
-วันที่จอง: ${new Date(booking.createdAt).toLocaleDateString()}
-วันที่เช็คอิน: ${new Date(booking.checkin).toLocaleDateString()}
-สลิปการโอนเงิน: ${booking.slipUrl || "ไม่มีสลิป"}
-สามารถเข้าไป ตรวจสอบและอนุมัติได้ที่: https://smartdorm-frontend.onrender.com
+วันที่จอง : ${formatThaiDate(booking.createdAt)}
+วันที่เช็คอิน : ${formatThaiDate(booking.checkin)}
+สลิปการโอนเงิน : ${booking.slipUrl || "ไม่มีสลิป"}
+
+--------------------
+
+สามารถเข้าไป ตรวจสอบและอนุมัติได้ที่ : https://smartdorm-frontend.onrender.com
 `;
 
       const userMsg = `📢 ได้ส่งคำขอจองห้อง ${booking.room.number} 
 ของคุณ ${booking.customer.userName} เรียบร้อยแล้ว
 กรุณารอการอนุมัติจากผู้ดูแลระบบ
 
--------------------
+-----------ข้อมูลลูกค้า----------
 
 รหัสการจองของคุณคือ: ${booking.bookingId}
 ชื่อ : ${booking.customer.fullName}
 เบอร์โทร : ${booking.customer.cphone}
-วันที่จอง: ${new Date(booking.createdAt).toLocaleDateString()}
-วันที่เช็คอิน: ${new Date(booking.checkin).toLocaleDateString()}
+วันที่จอง: ${formatThaiDate(booking.createdAt)}
+วันที่เช็คอิน: ${formatThaiDate(booking.checkin)}
 สถานะ: รอการอนุมัติจากผู้ดูแลระบบ
 
--------------------
+--------------------
 
-ขอบคุณที่ใช้บริการ SmartDorm `;
+ขอบคุณที่ใช้บริการ 🏫SmartDorm🎉 `;
 
       await notifyUser(booking.customer.userId, userMsg);
       if (process.env.ADMIN_LINE_ID) {
@@ -178,8 +193,18 @@ router.put("/:bookingId/approve", authMiddleware, async (req, res) => {
     });
 
     const userMsg = `📢 การจองห้อง ${booking.room.number}
-ของคุณ ${booking.customer.userName} ได้รับการอนุมัติแล้ว
-ขอบคุณที่ใช้บริการ SmartDorm`;
+ของคุณ ${booking.customer.userName}
+
+-----------ข้อมูลลูกค้า----------
+
+รหัสการจองของคุณคือ: ${booking.bookingId}
+ชื่อ : ${booking.customer.fullName}
+สามารเข้ามาเช็คอินได้ในวันที่ : ${formatThaiDate(booking.checkin)}
+สถานะ : ได้รับการอนุมัติแล้ว
+
+--------------------
+
+ขอบคุณที่ใช้บริการ 🏫SmartDorm🎉`;
 
     await notifyUser(booking.customer.userId, userMsg);
 
@@ -213,8 +238,24 @@ router.put("/:bookingId/reject", authMiddleware, async (req, res) => {
     ]);
 
     const userMsg = `📢การจองห้อง ${booking.room.number} 
-ของคุณ ${booking.customer.userName} ถูกปฏิเสธ
-กรุณาติดต่อผู้ดูแลระบบ`;
+ของคุณ ${booking.customer.userName}
+
+-----------ข้อมูลลูกค้า----------
+
+รหัสการจองของคุณคือ: ${booking.bookingId}
+ชื่อ : ${booking.customer.fullName}
+สถานะ : ถูกปฏิเสธ
+
+-----------หมายเลขบัญชี----------
+
+กรุณาส่งหมายเลขบัญชีเพื่อรับเงินมัดจำคืน
+ธนาคาร : ___________
+ชื่อบัญชี : ___________
+เลขที่บัญชี : ___________
+
+
+กรุณาติดต่อผู้ดูแลระบบ 
+ขอบคุณที่ใช้บริการ 🏫SmartDorm🎉 `;
 
     await notifyUser(booking.customer.userId, userMsg);
 
@@ -251,7 +292,7 @@ router.put("/:bookingId", authMiddleware, async (req, res) => {
             ctitle,
             cname,
             csurname,
-            fullName: `${ctitle} ${cname} ${csurname}`,
+            fullName: `${ctitle}${cname} ${csurname}`,
             cmumId,
             cphone,
           },
@@ -286,12 +327,12 @@ router.delete("/:bookingId", authMiddleware, async (req, res) => {
           .remove([filePath]);
 
         if (removeError) {
-          console.warn("⚠️ ลบสลิปจาก Supabase ไม่สำเร็จ:", removeError.message);
+          console.warn(" ลบสลิปจาก Supabase ไม่สำเร็จ:", removeError.message);
         } else {
-          console.log("🗑️ ลบสลิปจาก Supabase สำเร็จ:", filePath);
+          console.log(" ลบสลิปจาก Supabase สำเร็จ:", filePath);
         }
       } catch (err) {
-        console.warn("⚠️ ไม่สามารถลบไฟล์ Supabase ได้:", err);
+        console.warn(" ไม่สามารถลบไฟล์ Supabase ได้:", err);
       }
     }
 
@@ -306,7 +347,7 @@ router.delete("/:bookingId", authMiddleware, async (req, res) => {
 
     res.json({ message: "ลบการจองและสลิปสำเร็จ" });
   } catch (err) {
-    console.error("❌ Error deleting booking:", err);
+    console.error(" Error deleting booking:", err);
     res.status(500).json({ error: "ไม่สามารถลบการจองได้" });
   }
 });
