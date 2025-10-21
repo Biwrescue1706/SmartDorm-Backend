@@ -41,15 +41,15 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ---------------- Routes ----------------
-import adminRouter from "./routes/admin";
-import authRouter from "./routes/auth";
-import roomRouter from "./routes/room";
-import bookingRouter from "./routes/booking";
-import checkoutRouter from "./routes/checkout";
-import billRouter from "./routes/bill";
-import paymentRouter from "./routes/payment";
-import userRouter from "./routes/user";
-import qrRouter from "./routes/qr";
+import adminRouter from "./modules/Admins/adminRouter";
+import authRouter from "./modules/Auths/authRouter";
+import billRouter from "./modules/Bills/billRouter";
+import roomRouter from "./modules/Rooms/roomRouter";
+import bookingRouter from "./modules/Bookings/bookingRouter";
+import checkoutRouter from "./modules/Checkouts/checkoutRouter";
+import paymentRouter from "./modules/Payments/paymentRouter";
+import qrRouter from "./modules/QR/qrRouter";
+import userRouter from "./modules/Users/userRouter";
 
 app.use("/auth", authRouter);
 app.use("/admin",adminRouter );
