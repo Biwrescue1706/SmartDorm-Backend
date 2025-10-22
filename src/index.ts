@@ -12,24 +12,32 @@ app.set("trust proxy", 1);
 
 //  Allowed Origins
 const allowedOrigins = [
+
+  // localhost (dev)
   "http://localhost:5173",
   "http://localhost:5174",
+
+
+  // Render deploys
   "https://smartdorm-frontend.onrender.com",
-  "https://smartdorm-admin.biwbong.shop",
   "https://smartdorm-bookingroom.onrender.com",
-  "https://smartdorm-bookingsroom.biwbong.shop",
   "https://smartdorm-returnroom.onrender.com",
   "https://smartdorm-paymentbill.onrender.com",
+
+    // Custom domains
+  "https://smartdorm-admin.biwbong.shop",
+  "https://smartdorm-bookingroom.biwbong.shop",
+
 ];
 
 //  CORS Config
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
+    console.log("📍 Incoming Origin:", origin); // << เพิ่มบรรทัดนี้
     if (!origin) return callback(null, true);
     const isAllowed = allowedOrigins.includes(origin);
-    isAllowed
-      ? callback(null, true)
-      : callback(new Error(" CORS not allowed"));
+    console.log(isAllowed ? "Allowed" : "Blocked", origin); // << และอันนี้
+    isAllowed ? callback(null, true) : callback(new Error("CORS not allowed"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -37,7 +45,15 @@ const corsOptions: cors.CorsOptions = {
   exposedHeaders: ["Set-Cookie"],
 };
 
-app.use(cors(corsOptions));
+// ใช้ CORS (production / dev mode)
+if (process.env.NODE_ENV !== "production") {
+  console.log("⚙️ Dev Mode: Allow all origins temporarily");
+  app.use(cors({ origin: true, credentials: true }));
+} else {
+  app.use(cors(corsOptions));
+}
+
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -53,7 +69,7 @@ import qrRouter from "./modules/QR/qrRouter";
 import userRouter from "./modules/Users/userRouter";
 
 app.use("/auth", authRouter);
-app.use("/admin",adminRouter );
+app.use("/admin", adminRouter);
 app.use("/room", roomRouter);
 app.use("/booking", bookingRouter);
 app.use("/checkout", checkoutRouter);
@@ -86,9 +102,11 @@ app.listen(PORT, async () => {
     console.error(" Prisma connection error:", err);
     process.exit(1);
   }
-  
+
   if (process.env.NODE_ENV !== "production") {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+  } else {
+    console.log(`🚀 Server running on https://smartdorm-backend.biwbong.shop`);
   }
 });
 
