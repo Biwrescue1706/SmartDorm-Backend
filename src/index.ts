@@ -26,7 +26,7 @@ const allowedOrigins = [
 
     // Custom domains
   "https://smartdorm-admin.biwbong.shop",
-  "https://smartdorm-bookingroom.biwbong.shop",
+  "https://smartdorm-bookingsroom.biwbong.shop",
 
 ];
 
@@ -36,7 +36,7 @@ const corsOptions: cors.CorsOptions = {
     console.log("📍 Incoming Origin:", origin); // << เพิ่มบรรทัดนี้
     if (!origin) return callback(null, true);
     const isAllowed = allowedOrigins.includes(origin);
-    console.log(isAllowed ? "Allowed" : "Blocked", origin); // << และอันนี้
+    console.log( isAllowed ? "Allowed" : "Blocked", origin); // << และอันนี้
     isAllowed ? callback(null, true) : callback(new Error("CORS not allowed"));
   },
   credentials: true,
@@ -92,21 +92,22 @@ app.use((err: any, _req: any, res: any, _next: any) => {
 });
 
 // ---------------- Start Server ----------------
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000; // ✅ Default local dev 3000
 
 app.listen(PORT, async () => {
   try {
     await prisma.$connect();
-    console.log(" Connected to MongoDB via Prisma");
+    console.log("✅ Connected to MongoDB via Prisma");
   } catch (err) {
-    console.error(" Prisma connection error:", err);
+    console.error("❌ Prisma connection error:", err);
     process.exit(1);
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  const env = process.env.NODE_ENV || "development";
+  if (env !== "production") {
+    console.log(`🚀 Server running locally at http://localhost:${PORT}`);
   } else {
-    console.log(`🚀 Server running on https://smartdorm-backend.biwbong.shop`);
+    console.log(`🚀 Server running on port ${PORT}`);
   }
 });
 
