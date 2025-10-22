@@ -18,6 +18,12 @@ export const bookingService = {
     return await bookingRepository.findAll();
   },
 
+  async getBookingById(bookingId: string) {
+    const booking = await bookingRepository.findById(bookingId);
+    if (!booking) throw new Error("ไม่พบการจอง");
+    return booking;
+  },
+
   async createBooking(input: BookingInput) {
     const {
       userId,

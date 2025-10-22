@@ -17,6 +17,19 @@ router.get("/getall", async (_req: Request, res: Response) => {
   }
 });
 
+//  ดึงข้อมูลการจองตาม bookingId
+router.get("/:bookingId", async (req: Request, res: Response) => {
+  try {
+    const booking = await bookingService.getBookingById(req.params.bookingId);
+    if (!booking) {
+      return res.status(404).json({ error: "ไม่พบข้อมูลการจอง" });
+    }
+    res.json(booking);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 //  ผู้ใช้ส่งคำขอจองห้อง
 router.post("/create", upload.single("slip"), async (req, res) => {
   try {

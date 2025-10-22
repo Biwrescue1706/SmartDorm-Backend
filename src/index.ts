@@ -15,8 +15,9 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://smartdorm-frontend.onrender.com",
-  "https://smartdorm-admin.pages.dev",
+  "https://smartdorm-admin.biwbong.shop",
   "https://smartdorm-bookingroom.onrender.com",
+  "https://smartdorm-bookingsroom.biwbong.shop",
   "https://smartdorm-returnroom.onrender.com",
   "https://smartdorm-paymentbill.onrender.com",
 ];
